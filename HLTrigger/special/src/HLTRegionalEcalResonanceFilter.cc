@@ -1,4 +1,4 @@
-1;3409;0c#include "HLTrigger/special/interface/HLTRegionalEcalResonanceFilter.h"
+#include "HLTrigger/special/interface/HLTRegionalEcalResonanceFilter.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 
