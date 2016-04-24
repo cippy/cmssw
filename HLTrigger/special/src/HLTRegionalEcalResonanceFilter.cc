@@ -1072,19 +1072,22 @@ void HLTRegionalEcalResonanceFilter::calcPaircluster(const reco::BasicCluster &b
 
   TVector3 v1( bc1.x(), bc1.y(), bc1.z() );
   //start creating the sum of energies of the two input clusters. Here we only sum the first so that we can use it to set the magnitude of v1
-  float energysum = bc1.energy();
-  v1.SetMag(energysum);
+  float en1 = bc1.energy();
+  v1.SetMag(en1);
   // vsum would be v1 + v2, but instead of declaring both v2 and vsum, just declare vsum, initialize as if it is v2 and then sum v1.
   TVector3 vsum( bc2.x(), bc2.y(), bc2.z() );
-  vsum.SetMag(bc2.energy());
+  // define energy sum initializing it to energy2, so that we can use it before summing energy1
+  float energysum = bc2.energy();
+  vsum.SetMag(energysum);
   vsum += v1;
   // now sum the energy of the second basic cluster to get total energy
-  energysum += bc2.energy();
+  energysum += en1;
 
   // finally, assign values 
   m_pair = sqrt( energysum * energysum - vsum.Mag2());    // M_pi0 = sqrt(E_pi0^2 - |p_pi0|^2)
   pt_pair = vsum.Pt();
-  eta_pair = vsum.PseudoRapidity();  // should call vsum.Eta() but this would just call vsum.Pseudorapidity(), so let's skip one step
+  eta_pair = vsum.PseudoRapidity();  // could call vsum.Eta() but this would just call vsum.Pseudorapidity(), so let's skip one step
+  // note that Pseudorapidity is defined as the rapidity (see TVector3 documentation), that is, under the assumption of massless particle
   phi_pair = vsum.Phi();
 
 
