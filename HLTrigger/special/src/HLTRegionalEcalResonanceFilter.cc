@@ -1022,54 +1022,12 @@ void HLTRegionalEcalResonanceFilter::calcShowerShape(const reco::BasicCluster &b
 
 void HLTRegionalEcalResonanceFilter::calcPaircluster(const reco::BasicCluster &bc1, const reco::BasicCluster &bc2,float &m_pair,float &pt_pair,float &eta_pair, float &phi_pair){
     
-  
-  // float theta1 = 2. * atan(exp(-bc1.eta())); 
-  // float en1 = bc1.energy();
-  // float pt1 = en1 * sin(theta1); 
-  // TLorentzVector v1( pt1 *cos(bc1.phi()),pt1 * sin(bc1.phi()),en1*cos(theta1),en1);
-  
-  // float theta2 = 2. * atan(exp(-bc2.eta())); 
-  // float en2 = bc2.energy();
-  // float pt2 = en2 * sin(theta2); 
-  // TLorentzVector v2( pt2 *cos(bc2.phi()),pt2 * sin(bc2.phi()),en2*cos(theta2),en2);
-  
-  // TLorentzVector v = v1 + v2; 
-  
-  // m_pair = v.M();
-  // pt_pair = v.Pt();
-  // eta_pair = v.Eta();
-  // phi_pair = v.Phi();
- 
-  ///////////////////
-  // Some useful relations that eventually I didn't use
-  /////////////////// 
-  // Here we compute sin(Theta) = sqrt( (x^2 + y^2) / (x^2 + y^2 + z^2) ) = sqrt( 1 - (z^2)/(x^2 + y^2 + z^2) )
-  //float sinTheta1 = sqrt( 1. - bc1.z()*bc1.z() / ( bc1.x()*bc1.x() + bc1.y()*bc1.y() + bc1.z()*bc1.z() ) );
-  //float en1 = bc1.energy();
-  // float pt1 = en1 * sinTheta1;
-  // float pz1 = sqrt( en1 * en1 - pt1 * pt1 );
-
-  //float sinTheta2 = sqrt( 1. - ( bc2.z() * bc2.z() / ( bc2.x() * bc2.x() + bc2.y() * bc2.y() + bc2.z() * bc2.z() ) ) );
-  //float en2 = bc2.energy();
-  // float pt2 = en2* sinTheta2;
-  // float pz2 = sqrt( en2 * en2 - pt2 * pt2 );
-
-  ///////////////////
-  // My changes
-  /////////////////// 
   // use TVector3 instead of TLorentzVector to make things faster (and initialize with cartesian coordinates).
   // We are interested in the momentum vector:  however, we start from cartesian coordinates to get the vector direction, 
   // then we set the vector's magnitude to obtain momentum coordinates. The magnitude we set is equal to the particle's energy.
   // We can do this because, assuming massless particles (or negligible mass), the magnitude of the momentum vector is given by the energy.
 
-  //NOTES: 
-  // We have assumed that the cartesian and momentum coordinates are such the the respective vectors point in the same direction
-  // This is true for sure for neutral particles, which are not bent by the magnetic field. For a charged particle, the cartesian position in ECAL is given
-  // by the position of the crystal(s) who received its energy, which is what is measured (not the momentum, although its magnitude is roughly the energy). 
-  // The momentum direction for the two objects, from which the angle phi of their mother is computed, can be different since their momentum might be bent by
-  // the magnetic field (and the momentum direction is, or at least should, be computed after extrapolating to the interaction vertex).
-  // All these arguments are of course irrelevant for photons, since they are neutral particles.
-
+  // Define a TVector3 and initialize it with the first cluster's cartesian coordinates
   TVector3 v1( bc1.x(), bc1.y(), bc1.z() );
   //start creating the sum of energies of the two input clusters. Here we only sum the first so that we can use it to set the magnitude of v1
   float en1 = bc1.energy();
