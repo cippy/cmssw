@@ -1,9 +1,11 @@
 #!/bin/bash
 
-plotdir="plot/2016_Et"
-rootdir="output/2016_Et"
+outputDirName="plot/2016"   # name of directory where files are stored (can be a single name or a path, they will be created from current directory below)
+############################################
+# WARNING  --> outputDirName must end with /
+########################################### 
 wwwBase="/afs/cern.ch/user/m/mciprian/www/"
-wwwdir="/afs/cern.ch/user/m/mciprian/www/EoverP/"$plotdir
+wwwdir="/afs/cern.ch/user/m/mciprian/www/EoverP/"$outputDirName
 
 
 echo
@@ -27,12 +29,10 @@ do
     fi
 done
 
-echo "Creating directory to store plots, if not yet existing ..."
-mkdir -p $plotdir
-echo "Creating directory to store root files, if not yet existing ..."
-mkdir -p $rootdir
+echo "Creating directory to store output files, if not yet existing ..."
+echo "mkdir -p $outputDirName" | bash
 echo "Creating directory to store plots on website, if not yet existing ..."
-mkdir -p $wwwdir
+echo "mkdir -p $wwwdir" | bash
 
 # now must launch script to make plots visible from website
 currentPath="$PWD"
@@ -43,10 +43,10 @@ cd $currentPath
 echo "Now launching executable ..."
 echo "----------------------------"
 echo " "
-./EoverP $@
+echo "./EoverP $@" | bash
 echo " "
 echo "Copying plots from ./$plotdir to $wwwdir"
-cp -r ${plotdir}/*.png $wwwdir
-cp -r ${plotdir}/*.pdf $wwwdir
+echo "cp -r ${outputDirName}*.png $wwwdir" | bash
+echo "cp -r ${outputDirName}*.pdf $wwwdir" | bash
 echo "The end !"
 

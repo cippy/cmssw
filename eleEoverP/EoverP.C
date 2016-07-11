@@ -44,9 +44,6 @@
 
 #include <Rtypes.h> // to use kColor
 
-//#define ISDATA_FLAG 1
-#define DIR_TO_SAVE_PLOT "./plot/2016_Et/"
-#define DIR_TO_SAVE_ROOT "./output/2016_Et/"
 #define DATA2016 1
 
 using namespace std;
@@ -326,7 +323,7 @@ Int_t getBinNumber(const Float_t value, const vector<Float_t> &binEdgesVector) {
 
 //============================================================
 
-void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinEdges)
+void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinEdges, const string& dirName)
 {
 
 
@@ -379,7 +376,7 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
 
    Int_t nCorrEnergyBins = corrEnergybinEdges.size() -1;
 
-   string rootfileName = string(DIR_TO_SAVE_ROOT) + "EoverP_" + sampleName + ".root";
+   string rootfileName = dirName + "EoverP_" + sampleName + ".root";
 
    TFile *rootFile = new TFile((rootfileName).c_str(),"RECREATE");
    if (!rootFile || !rootFile->IsOpen()) {
@@ -434,7 +431,7 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
       if (met_pt < 50) continue;
       if (!(nEle10V == 1 && nEle40T == 1)) continue;
       if (!(fabs(LepGood_pdgId[0]) == 11 && LepGood_pt[0] > 40 && fabs(LepGood_eta[0]) < 1.0 && LepGood_r9[0] > 0.94)) continue;
-      //      if (!(fabs(LepGood_pdgId[0]) == 11 && LepGood_pt[0] > 40 && fabs(LepGood_eta[0]) > 1.0 && fabs(LepGood_eta[0]) < 1.479)) continue;
+      //if (!(fabs(LepGood_pdgId[0]) == 11 && LepGood_pt[0] > 40 && fabs(LepGood_eta[0]) > 1.0 && fabs(LepGood_eta[0]) < 1.479)) continue;
 
       // here goes with the algorithm to match gen to reco electrons and in case fill histograms
 
@@ -586,12 +583,12 @@ void getTexMCSampleName(const string &MCSampleName, string &texMCSampleName) {
 
 }
 
-void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnergybinEdges, TH1F* hPeak, TH1F* hSigma, const string &hNameID) {
+void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnergybinEdges, TH1F* hPeak, TH1F* hSigma, const string &hNameID, const string &dirName) {
 
   TH1::SetDefaultSumw2(); //all the following histograms will automatically call TH1::Sumw2() 
   TVirtualFitter::SetDefaultFitter("Minuit");
 
-  string fileName = string(DIR_TO_SAVE_ROOT) + "EoverP_" + sampleName + ".root";
+  string fileName = dirName + "EoverP_" + sampleName + ".root";
 
   TCanvas *c = new TCanvas("c",""); 
 
@@ -635,10 +632,6 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
     // do a first fit with a simple gaussian in the core
     Double_t gaussEdgeL = 0.9;  //left side of the gaussian to be used in the fit (I use a variable so that I change this value only once)
     Double_t gaussEdgeR = 1.1;  //right side ...
-    if (corrEnergybinEdges[i] > 249.9 && sampleName == "DATA") {
-      gaussEdgeL = 0.75;
-      gaussEdgeR = 1.25;
-    }
     if (corrEnergybinEdges[i] > 349.9) {
       gaussEdgeL = 0.75;
       gaussEdgeR = 1.25;
@@ -688,9 +681,9 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
     }
 
     hist->SetTitle(Form("%1.0f < E[GeV] < %1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]));
-
-    c->SaveAs(Form("%s%sdistribution_E%1.0fTo%1.0f_%s.pdf",DIR_TO_SAVE_PLOT,hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
-    c->SaveAs(Form("%s%sdistribution_E%1.0fTo%1.0f_%s.png",DIR_TO_SAVE_PLOT,hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
+    
+    c->SaveAs(Form("%s%sdistribution_E%1.0fTo%1.0f_%s.pdf",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
+    c->SaveAs(Form("%s%sdistribution_E%1.0fTo%1.0f_%s.png",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
 
   }
 
@@ -703,7 +696,7 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
 //==========================================================================================
 
 
-void drawPlotDataMC(TH1F* hdata, TH1F* hmc, const string& MCSampleName, const string& xAxisName, const string& yAxisName, const string& canvasName) {
+void drawPlotDataMC(TH1F* hdata, TH1F* hmc, const string& MCSampleName, const string& xAxisName, const string& yAxisName, const string& canvasName, const string &dirName) {
 
   TCanvas *cfit = new TCanvas("cfit","",700,700);
 
@@ -759,11 +752,11 @@ void drawPlotDataMC(TH1F* hdata, TH1F* hmc, const string& MCSampleName, const st
   ratioplot->GetYaxis()->SetTitleOffset(0.45);
   ratioplot->GetYaxis()->CenterTitle();
   ratioplot->GetYaxis()->SetNdivisions(011);
+  //if (0) ratioplot->GetYaxis()->SetRangeUser(0.4,1.4);
   ratioplot->SetMarkerStyle(8);  //medium dot  
   ratioplot->DrawCopy("E");
-  string dir = string(DIR_TO_SAVE_PLOT);
-  cfit->SaveAs( (dir + canvasName + ".pdf").c_str() );
-  cfit->SaveAs( (dir + canvasName + ".png").c_str() );
+  cfit->SaveAs( (dirName + canvasName + ".pdf").c_str() );
+  cfit->SaveAs( (dirName + canvasName + ".png").c_str() );
 
 
 }
@@ -771,7 +764,7 @@ void drawPlotDataMC(TH1F* hdata, TH1F* hmc, const string& MCSampleName, const st
 //==========================================================================================
 
 
-void drawPlotOnlyMC(vector<TH1F*> &hmcVector, const vector<string> &legEntryName, const string& MCSampleName, const string& xAxisName, const string& yAxisName, const string& canvasName) {
+void drawPlotOnlyMC(vector<TH1F*> &hmcVector, const vector<string> &legEntryName, const string& MCSampleName, const string& xAxisName, const string& yAxisName, const string& canvasName, const string &dirName) {
 
   TCanvas *cfitMC = new TCanvas("cfitMC","");
 
@@ -858,16 +851,15 @@ void drawPlotOnlyMC(vector<TH1F*> &hmcVector, const vector<string> &legEntryName
   // ratioplot->GetYaxis()->SetNdivisions(011);
   // ratioplot->SetMarkerStyle(8);  //medium dot  
   // ratioplot->DrawCopy("E");
-  string dir = string(DIR_TO_SAVE_PLOT);
-  cfitMC->SaveAs( (dir + canvasName + ".pdf").c_str() );
-  cfitMC->SaveAs( (dir + canvasName + ".png").c_str() );
+  cfitMC->SaveAs( (dirName + canvasName + ".pdf").c_str() );
+  cfitMC->SaveAs( (dirName + canvasName + ".png").c_str() );
 
 
 }
 
 //=================================================================================
 
-void plotFromFit(const string &dataSampleName, const string &MCSampleName, const vector<Float_t> &corrEnergybinEdges) {
+void plotFromFit(const string &dataSampleName, const string &MCSampleName, const vector<Float_t> &corrEnergybinEdges, const string & dirName) {
   
   Int_t nCorrEnergyBins = corrEnergybinEdges.size() -1;
 
@@ -876,11 +868,11 @@ void plotFromFit(const string &dataSampleName, const string &MCSampleName, const
   TH1F* hPeakEoverPmc = new TH1F("hPeakEoverPmc","",nCorrEnergyBins,corrEnergybinEdges.data());
   TH1F* hSigmaEoverPmc = new TH1F("hSigmaEoverPmc","",nCorrEnergyBins,corrEnergybinEdges.data());
 
-  plotDistribution(dataSampleName, corrEnergybinEdges, hPeakEoverPdata, hSigmaEoverPdata, "EoverP");
-  plotDistribution(MCSampleName, corrEnergybinEdges, hPeakEoverPmc, hSigmaEoverPmc, "EoverP");
+  plotDistribution(dataSampleName, corrEnergybinEdges, hPeakEoverPdata, hSigmaEoverPdata, "EoverP",dirName);
+  plotDistribution(MCSampleName, corrEnergybinEdges, hPeakEoverPmc, hSigmaEoverPmc, "EoverP",dirName);
 
-  drawPlotDataMC(hPeakEoverPdata, hPeakEoverPmc, MCSampleName, "corrected E [GeV]", "peak(E/P)", "modeEoverPfromFit");
-  drawPlotDataMC(hSigmaEoverPdata, hSigmaEoverPmc, MCSampleName, "corrected E [GeV]", "#sigma(E/P)", "sigmaEoverPfromFit");
+  drawPlotDataMC(hPeakEoverPdata, hPeakEoverPmc, MCSampleName, "corrected E [GeV]", "peak(E/P)", "modeEoverPfromFit",dirName);
+  drawPlotDataMC(hSigmaEoverPdata, hSigmaEoverPmc, MCSampleName, "corrected E [GeV]", "#sigma(E/P)", "sigmaEoverPfromFit",dirName);
 
   // MC only study
 
@@ -891,9 +883,9 @@ void plotFromFit(const string &dataSampleName, const string &MCSampleName, const
   TH1F* hPeakPtrackOverEtrue = new TH1F("hPeakPtrackOverEtrue","",nCorrEnergyBins,corrEnergybinEdges.data());
   TH1F* hSigmaPtrackOverEtrue = new TH1F("hSigmaPtrackOverEtrue","",nCorrEnergyBins,corrEnergybinEdges.data());
 
-  plotDistribution(MCSampleName, corrEnergybinEdges, hPeakEcorrOverEtrue, hSigmaEcorrOverEtrue, "EcorrOverEtrue");
-  plotDistribution(MCSampleName, corrEnergybinEdges, hPeakErawOverEtrue, hSigmaErawOverEtrue, "ErawOverEtrue");
-  plotDistribution(MCSampleName, corrEnergybinEdges, hPeakPtrackOverEtrue, hSigmaPtrackOverEtrue, "PtrackOverEtrue");    
+  plotDistribution(MCSampleName, corrEnergybinEdges, hPeakEcorrOverEtrue, hSigmaEcorrOverEtrue, "EcorrOverEtrue",dirName);
+  plotDistribution(MCSampleName, corrEnergybinEdges, hPeakErawOverEtrue, hSigmaErawOverEtrue, "ErawOverEtrue",dirName);
+  plotDistribution(MCSampleName, corrEnergybinEdges, hPeakPtrackOverEtrue, hSigmaPtrackOverEtrue, "PtrackOverEtrue",dirName);    
 
   vector<TH1F*> hPeakVectorMC;
   hPeakVectorMC.push_back(hPeakEcorrOverEtrue);
@@ -910,8 +902,8 @@ void plotFromFit(const string &dataSampleName, const string &MCSampleName, const
   legEntryName.push_back("E_{raw}/E_{true}");
   legEntryName.push_back("P_{track}/E_{true}");
 
-  drawPlotOnlyMC(hPeakVectorMC, legEntryName, MCSampleName, "corrected E [GeV]", "peak position", "modeMCstudy"); 
-  drawPlotOnlyMC(hSigmaVectorMC, legEntryName, MCSampleName, "corrected E [GeV]", "#sigma of distribution", "sigmaMCstudy"); 
+  drawPlotOnlyMC(hPeakVectorMC, legEntryName, MCSampleName, "corrected E [GeV]", "peak position", "modeMCstudy",dirName); 
+  drawPlotOnlyMC(hSigmaVectorMC, legEntryName, MCSampleName, "corrected E [GeV]", "#sigma of distribution", "sigmaMCstudy",dirName); 
 
 
 }
@@ -924,6 +916,8 @@ Int_t main(Int_t argc, char* argv[]) {
   Int_t doAll_flag = 1;
   Int_t doLoop_flag = 1;
   Int_t doPlot_flag = 1;
+
+  string dirName = "";   // will be a path like "plot/<name>/" . Note the ending "/" 
 
   if (argc > 1) {
 
@@ -938,6 +932,11 @@ Int_t main(Int_t argc, char* argv[]) {
 	cout << "Passing option -np: skip creation of plots" << endl;
 	doPlot_flag = 0;  // -np --> no plots
 	doAll_flag = 0;
+      } else if (thisArgument == "-dn") {   // -dn --> directory name
+	cout << "Passing option -dn: passing name for directories to be created" << endl;
+	dirName = string(argv[i+1]);
+	cout << "Saving output in '" << dirName << "'" << endl;
+	i++;
       }
 
     }
@@ -980,7 +979,7 @@ Int_t main(Int_t argc, char* argv[]) {
       }
 
       EoverP tree(chain);
-      tree.Loop(sampleName[i], corrEnergybinEdges);
+      tree.Loop(sampleName[i], corrEnergybinEdges, dirName);
 
       delete chain;
       delete chFriend;
@@ -992,7 +991,7 @@ Int_t main(Int_t argc, char* argv[]) {
 
   if(doAll_flag || doPlot_flag) {
 
-    plotFromFit(sampleName[0],sampleName[1], corrEnergybinEdges);
+    plotFromFit(sampleName[0],sampleName[1], corrEnergybinEdges, dirName);
 
   }
 
