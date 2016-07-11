@@ -45,7 +45,9 @@
 #include <Rtypes.h> // to use kColor
 
 //#define ISDATA_FLAG 1
-#define DIR_TO_SAVE_PLOT "./plot/"
+#define DIR_TO_SAVE_PLOT "./plot/2016_Et/"
+#define DIR_TO_SAVE_ROOT "./output/2016_Et/"
+#define DATA2016 1
 
 using namespace std;
 
@@ -161,8 +163,15 @@ void buildChainWithFriend(TChain* chain, TChain* chFriend, string sampleName) {
 
   if (sampleName == "DATA") {
 
-    subSampleNameVector.push_back("SingleElectron_PromptReco_v1_runs_272021_273149");
-    subSampleNameVector.push_back("SingleElectron_PromptReco_v2_runs_273150_274443");
+    // 2016 2.6fb^-1
+    if (DATA2016) {
+      subSampleNameVector.push_back("SingleElectron_PromptReco_v1_runs_272021_273149");
+      subSampleNameVector.push_back("SingleElectron_PromptReco_v2_runs_273150_274443");
+    } else {
+    // 2015 2.32 fb^-1
+      subSampleNameVector.push_back("SingleElectron_Run2015C_16Dec_runs_254227_254914");
+      subSampleNameVector.push_back("SingleElectron_Run2015D_16Dec_runs_256630_260627");
+    }
 
   } else if (sampleName == "WJetsToLNu") {
     
@@ -171,7 +180,8 @@ void buildChainWithFriend(TChain* chain, TChain* chFriend, string sampleName) {
     subSampleNameVector.push_back("WJetsToLNu_HT400to600");
     subSampleNameVector.push_back("WJetsToLNu_HT600to800");
     subSampleNameVector.push_back("WJetsToLNu_HT800to1200");
-    subSampleNameVector.push_back("WJetsToLNu_HT2500toInf");  // note, 1200to2500 bin missing                                    
+    if (!DATA2016) subSampleNameVector.push_back("WJetsToLNu_HT1200to2500"); // note, 1200to2500 bin missing for 2016 MC
+    subSampleNameVector.push_back("WJetsToLNu_HT2500toInf"); 
 
   } else {
 
@@ -180,12 +190,17 @@ void buildChainWithFriend(TChain* chain, TChain* chFriend, string sampleName) {
 
   }
 
-  string treePath = "root://eoscms//eos/cms/store/cmst3/group/susy/emanuele/monox/trees/TREES_1LEPSKIM_80X/";
+  //2016 trees
+  string treePath = "";
+  if (DATA2016) treePath = "root://eoscms//eos/cms/store/cmst3/group/susy/emanuele/monox/trees/TREES_1LEPSKIM_80X/"; // 2016 trees
+  else treePath = "root://eoscms//eos/cms/store/cmst3/group/susy/emanuele/monox/trees/TREES_25ns_1LEPSKIM_76X/";   //2015 trees
   
   for(UInt_t i = 0; i < subSampleNameVector.size(); i++) {
   
     string treeRootFile = treePath + subSampleNameVector[i] + "_treeProducerDarkMatterMonoJet_tree.root";
-    string friend_treeRootFile = treePath + "friends_evVarFriend_" + subSampleNameVector[i]+ ".root";
+    string friend_treeRootFile = "";
+    if (DATA2016) friend_treeRootFile = treePath + "friends_evVarFriend_" + subSampleNameVector[i]+ ".root";
+    else friend_treeRootFile = treePath + "evVarFriend_" + subSampleNameVector[i]+ ".root";
 
     chain->Add(TString(treeRootFile.c_str()));
     chFriend->Add(TString(friend_treeRootFile.c_str()));
@@ -364,7 +379,7 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
 
    Int_t nCorrEnergyBins = corrEnergybinEdges.size() -1;
 
-   string rootfileName = "EoverP_" + sampleName + ".root";
+   string rootfileName = string(DIR_TO_SAVE_ROOT) + "EoverP_" + sampleName + ".root";
 
    TFile *rootFile = new TFile((rootfileName).c_str(),"RECREATE");
    if (!rootFile || !rootFile->IsOpen()) {
@@ -419,6 +434,7 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
       if (met_pt < 50) continue;
       if (!(nEle10V == 1 && nEle40T == 1)) continue;
       if (!(fabs(LepGood_pdgId[0]) == 11 && LepGood_pt[0] > 40 && fabs(LepGood_eta[0]) < 1.0 && LepGood_r9[0] > 0.94)) continue;
+      //      if (!(fabs(LepGood_pdgId[0]) == 11 && LepGood_pt[0] > 40 && fabs(LepGood_eta[0]) > 1.0 && fabs(LepGood_eta[0]) < 1.479)) continue;
 
       // here goes with the algorithm to match gen to reco electrons and in case fill histograms
 
@@ -461,7 +477,9 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
 
 
       // look for the bin in the LepGood_correctedEcalEnergy variable
-      Int_t bin = getBinNumber(LepGood_correctedEcalEnergy[0],corrEnergybinEdges);  // this function returns negative value if bin not found
+      Double_t theta = 2. * atan(exp(-LepGood_eta[0])); 
+      Double_t energyToUse = LepGood_correctedEcalEnergy[0]*sin(theta); 
+      Int_t bin = getBinNumber(energyToUse,corrEnergybinEdges);  // this function returns negative value if bin not found
 
       if (bin >= 0) {
 
@@ -573,7 +591,7 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
   TH1::SetDefaultSumw2(); //all the following histograms will automatically call TH1::Sumw2() 
   TVirtualFitter::SetDefaultFitter("Minuit");
 
-  string fileName = "EoverP_" + sampleName + ".root";
+  string fileName = string(DIR_TO_SAVE_ROOT) + "EoverP_" + sampleName + ".root";
 
   TCanvas *c = new TCanvas("c",""); 
 
@@ -603,7 +621,7 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
     hist->Draw("HE");
     if (sampleName == "DATA") {
       if (corrEnergybinEdges[i] > 349.9) hist->Rebin(3); 
-      else if (corrEnergybinEdges[i] > 249.9) hist->Rebin(2);
+      else if (corrEnergybinEdges[i] > 199.9) hist->Rebin(2); // when using E instead of Et 249.9 is ok
     } else if (hNameID != "EoverP") {
       if (hNameID == "PtrackOverEtrue") {
 	hist->Rebin(2);
@@ -617,9 +635,13 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
     // do a first fit with a simple gaussian in the core
     Double_t gaussEdgeL = 0.9;  //left side of the gaussian to be used in the fit (I use a variable so that I change this value only once)
     Double_t gaussEdgeR = 1.1;  //right side ...
+    if (corrEnergybinEdges[i] > 249.9 && sampleName == "DATA") {
+      gaussEdgeL = 0.75;
+      gaussEdgeR = 1.25;
+    }
     if (corrEnergybinEdges[i] > 349.9) {
-      gaussEdgeL = 0.8;
-      gaussEdgeR = 1.2;
+      gaussEdgeL = 0.75;
+      gaussEdgeR = 1.25;
     }
     if (sampleName != "DATA" && hNameID != "EoverP") {
       if (hNameID == "PtrackOverEtrue") {
@@ -792,7 +814,9 @@ void drawPlotOnlyMC(vector<TH1F*> &hmcVector, const vector<string> &legEntryName
       if (hmcVector[i]->GetMinimum() < 0.02) hmcVector[i]->SetMinimum(0.0);
       hmcVector[i]->Draw("HE");
       hmcVector[i]->GetXaxis()->SetTitle(xAxisName.c_str());
-      //      hmcVector[i]->GetXaxis()->SetLabelSize(0.45);
+      hmcVector[i]->GetXaxis()->SetLabelSize(0.05);
+      hmcVector[i]->GetXaxis()->SetTitleSize(0.06);
+      hmcVector[i]->GetXaxis()->SetTitleOffset(0.8);
       hmcVector[i]->GetYaxis()->SetTitle(yAxisName.c_str());
       hmcVector[i]->GetYaxis()->SetTitleSize(0.06);
       hmcVector[i]->GetYaxis()->SetTitleOffset(0.8);
@@ -855,7 +879,7 @@ void plotFromFit(const string &dataSampleName, const string &MCSampleName, const
   plotDistribution(dataSampleName, corrEnergybinEdges, hPeakEoverPdata, hSigmaEoverPdata, "EoverP");
   plotDistribution(MCSampleName, corrEnergybinEdges, hPeakEoverPmc, hSigmaEoverPmc, "EoverP");
 
-  drawPlotDataMC(hPeakEoverPdata, hPeakEoverPmc, MCSampleName, "corrected E [GeV]", "mode of E/P", "modeEoverPfromFit");
+  drawPlotDataMC(hPeakEoverPdata, hPeakEoverPmc, MCSampleName, "corrected E [GeV]", "peak(E/P)", "modeEoverPfromFit");
   drawPlotDataMC(hSigmaEoverPdata, hSigmaEoverPmc, MCSampleName, "corrected E [GeV]", "#sigma(E/P)", "sigmaEoverPfromFit");
 
   // MC only study
