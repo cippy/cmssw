@@ -507,22 +507,6 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
      hEoverP_corrEnergyBin[i]->GetYaxis()->SetTitleSize(0.055);
      hEoverP_corrEnergyBin[i]->GetYaxis()->SetTitleOffset(0.8);
 
-     // decided to store only the distribution, without aleady filling histograms with E/P or whatever at the peak
-
-     // //Double_t stdDev = hEoverP_corrEnergyBin[i]->GetRMS();
-     // //     Double_t stdDev = getEffectiveSigma(hEoverP_corrEnergyBin[i]);
-     // //if (stdDev <= 0.000001) stdDev = hEoverP_corrEnergyBin[i]->GetRMS(); // if 0 (being double, better to ask < epsilon)  
-     // hMeanEoverP->SetBinContent(i+1,hEoverP_corrEnergyBin[i]->GetMean());  // try also with real peak position                                    
-     // //hMeanEoverP->SetBinError(i+1,stdDev);  // use RMS as uncertainty, can always get back to poisson uncertainty by taking square root
-     // hMeanEoverP->SetBinError(i+1,hEoverP_corrEnergyBin[i]->GetMeanError());  // use uncertainty on the mean 
-     // // again with mean in restricted range to get the peak
-     // TH1F* hTmp = new TH1F(*(hEoverP_corrEnergyBin[i]));
-     // hTmp->GetXaxis()->SetRangeUser(lowMeanCut,upMeanCut);     
-     // hModeEoverP->SetBinContent(i+1,hTmp->GetMean());  // try also with real peak position                              
-     // //hModeEoverP->SetBinError(i+1,stdDev);  // same uncertainty as above (RMS of whole distribution)
-     // hModeEoverP->SetBinError(i+1,hTmp->GetMeanError());  // use uncertainty on the mean in the restricted range (so less entries and larger uncertainty) 
-     // delete hTmp;
-
    }
 
    if (sampleName != "DATA") {
@@ -554,22 +538,6 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
 
    }
 
-   // hMeanEoverP->SetStats(0);
-   // hMeanEoverP->GetXaxis()->SetTitle("corrected E [GeV]");
-   // hMeanEoverP->GetXaxis()->SetTitleSize(0.06);
-   // hMeanEoverP->GetXaxis()->SetTitleOffset(0.75);
-   // hMeanEoverP->GetYaxis()->SetTitle("< E/P >");
-   // hMeanEoverP->GetYaxis()->SetTitleSize(0.055);
-   // hMeanEoverP->GetYaxis()->SetTitleOffset(0.75);
-
-   // hModeEoverP->SetStats(0);
-   // hModeEoverP->GetXaxis()->SetTitle("corrected E [GeV]");
-   // hModeEoverP->GetXaxis()->SetTitleSize(0.06);
-   // hModeEoverP->GetXaxis()->SetTitleOffset(0.75);
-   // hModeEoverP->GetYaxis()->SetTitle("Mode of E/P ");
-   // hModeEoverP->GetYaxis()->SetTitleSize(0.055);
-   // hModeEoverP->GetYaxis()->SetTitleOffset(0.75);
-
    rootFile->Write();
    rootFile->Close();
    delete rootFile;
@@ -580,6 +548,7 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
 void getTexMCSampleName(const string &MCSampleName, string &texMCSampleName) {
   
   if (MCSampleName == "WJetsToLNu") texMCSampleName = "W(l#nu)+jets";
+  else if (MCSampleName == "DYJetsToLL") texMCSampleName = "Z(ll)+jets";
 
 }
 
@@ -670,6 +639,10 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
       cb1->SetParLimits(cb1->GetParNumber("alpha"),0.01,10);
       cb1->SetParameters((gaussEdgeR-gaussMean)/gaussSigma,5,gaussMean,gaussSigma,gaussNorm);
     }
+    // with the following (or some of them) it looks like the fit doesn't work well, tipically the value from fit is out of the range
+    // cb1->SetParLimits(cb1->GetParNumber("mu"),gaussMean-3.0*gaussSigma,gaussMean+3.0*gaussSigma);
+    // cb1->SetParLimits(cb1->GetParNumber("sigma"),0.1*gaussSigma,10.0*gaussSigma);
+    // cb1->SetParLimits(cb1->GetParNumber("N"),0.1*gaussNorm,10.0*gaussNorm);
     TFitResultPtr frp1 = hist->Fit(cb1,"WL I S Q B R","HE",funcRangeLeft,funcRangeRight);
     if (hPeak != NULL) {
       hPeak->SetBinContent(i+1, frp1->Parameter(2)); // 2 is mu (starts with alpha, which is parameter number 0)  
@@ -680,10 +653,10 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
       hSigma->SetBinError(i+1, frp1->ParError(3)); // 2 is mu (starts with alpha, which is parameter number 0)  
     }
 
-    hist->SetTitle(Form("%1.0f < E[GeV] < %1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]));
+    hist->SetTitle(Form("%1.0f < E_{T}[GeV] < %1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]));
     
-    c->SaveAs(Form("%s%sdistribution_E%1.0fTo%1.0f_%s.pdf",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
-    c->SaveAs(Form("%s%sdistribution_E%1.0fTo%1.0f_%s.png",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
+    c->SaveAs(Form("%s%sdistribution_ET%1.0fTo%1.0f_%s.pdf",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
+    c->SaveAs(Form("%s%sdistribution_ET%1.0fTo%1.0f_%s.png",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
 
   }
 
@@ -871,8 +844,8 @@ void plotFromFit(const string &dataSampleName, const string &MCSampleName, const
   plotDistribution(dataSampleName, corrEnergybinEdges, hPeakEoverPdata, hSigmaEoverPdata, "EoverP",dirName);
   plotDistribution(MCSampleName, corrEnergybinEdges, hPeakEoverPmc, hSigmaEoverPmc, "EoverP",dirName);
 
-  drawPlotDataMC(hPeakEoverPdata, hPeakEoverPmc, MCSampleName, "corrected E [GeV]", "peak(E/P)", "modeEoverPfromFit",dirName);
-  drawPlotDataMC(hSigmaEoverPdata, hSigmaEoverPmc, MCSampleName, "corrected E [GeV]", "#sigma(E/P)", "sigmaEoverPfromFit",dirName);
+  drawPlotDataMC(hPeakEoverPdata, hPeakEoverPmc, MCSampleName, "corrected E_{T} [GeV]", "peak(E/P)", "modeEoverPfromFit",dirName);
+  drawPlotDataMC(hSigmaEoverPdata, hSigmaEoverPmc, MCSampleName, "corrected E_{T} [GeV]", "#sigma(E/P)", "sigmaEoverPfromFit",dirName);
 
   // MC only study
 
@@ -902,8 +875,8 @@ void plotFromFit(const string &dataSampleName, const string &MCSampleName, const
   legEntryName.push_back("E_{raw}/E_{true}");
   legEntryName.push_back("P_{track}/E_{true}");
 
-  drawPlotOnlyMC(hPeakVectorMC, legEntryName, MCSampleName, "corrected E [GeV]", "peak position", "modeMCstudy",dirName); 
-  drawPlotOnlyMC(hSigmaVectorMC, legEntryName, MCSampleName, "corrected E [GeV]", "#sigma of distribution", "sigmaMCstudy",dirName); 
+  drawPlotOnlyMC(hPeakVectorMC, legEntryName, MCSampleName, "corrected E_{T} [GeV]", "peak position", "modeMCstudy",dirName); 
+  drawPlotOnlyMC(hSigmaVectorMC, legEntryName, MCSampleName, "corrected E_{T} [GeV]", "#sigma of distribution", "sigmaMCstudy",dirName); 
 
 
 }
