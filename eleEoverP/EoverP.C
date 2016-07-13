@@ -614,7 +614,7 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
 	gaussEdgeR = 1.05;	
       }
     }
-    hist->Fit("gaus","L 0 Q","",gaussEdgeL,gaussEdgeR);  // L: loglikelihood method, 0: do not plot this fit, Q: quiet mode (minimum printing)
+    hist->Fit("gaus","WL I Q 0","",gaussEdgeL,gaussEdgeR);  // L: loglikelihood method, 0: do not plot this fit, Q: quiet mode (minimum printing)
     Double_t gaussNorm = hist->GetFunction("gaus")->GetParameter(0);
     Double_t gaussMean = hist->GetFunction("gaus")->GetParameter(1);
     //Double_t gaussMeanError = hist->GetFunction("gaus")->GetParError(1);
