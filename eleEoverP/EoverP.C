@@ -45,6 +45,9 @@
 #include <Rtypes.h> // to use kColor
 
 #define DATA2016 1
+#define SKIM_1LEP1JET_80X 1
+#define FIT_2SIDE_CB 0
+#define SET_SCALE_ON_Y 0
 
 using namespace std;
 
@@ -98,41 +101,41 @@ Double_t myCrystalBallLeftTail(double* x, double* par) {
 
 //=====================================================================
 
-// Double_t my2sideCrystalBall(string whichSide = "L",  double* x, double* par) {
+Double_t my2sideCrystalBall(double* x, double* par) {
 
-//   //a priori we allow for different shape of right and left tail, thus two values of alpha and n 
+  //a priori we allow for different shape of right and left tail, thus two values of alpha and n 
 
-//   Double_t xcur = x[0];
-//   Double_t alphaL = par[0];
-//   Double_t nL = par[1];
-//   Double_t mu = par[2];
-//   Double_t sigma = par[3];
-//   Double_t N = par[4];
-//   Double_t alphaR = par[5];
-//   Double_t nR = par[6];
-//   Double_t t = (xcur-mu)/sigma;
-//   Double_t absAlphaL = fabs((Double_t)alphaL);
-//   Double_t invAbsAlphaL = 1./absAlphaL;
-//   Double_t absAlphaR = fabs((Double_t)alphaR);
-//   Double_t invAbsAlphaR = 1./absAlphaR;
+  Double_t xcur = x[0];
+  Double_t alphaL = par[0];
+  Double_t nL = par[1];
+  Double_t mu = par[2];
+  Double_t sigma = par[3];
+  Double_t N = par[4];
+  Double_t alphaR = par[5];
+  Double_t nR = par[6];
+  Double_t t = (xcur-mu)/sigma;
+  Double_t absAlphaL = fabs((Double_t)alphaL);
+  Double_t invAbsAlphaL = 1./absAlphaL;
+  Double_t absAlphaR = fabs((Double_t)alphaR);
+  Double_t invAbsAlphaR = 1./absAlphaR;
 
   
-//   if ( t<-absAlphaL ) {
-//     //cout<<"checkpoint dscb left"<<endl;
-//     Double_t AL = TMath::Power(nL*invAbsAlphaL,nL)*exp(-0.5*absAlphaL*absAlphaL);
-//     Double_t BL = nL*invAbsAlphaL - absAlphaL;
-//     return N*AL*TMath::Power(BL-t,-nL);
-//   } else if ( t <= absAlphaR )  {
-//     //cout<<"checkpoint dscb gaussian"<<endl;
-//     return N*exp(-0.5*t*t);
-//   } else {
-//     //cout<<"checkpoint dscb right"<<endl;
-//     Double_t AR = TMath::Power(nR*invAbsAlphaR,nR)*exp(-0.5*absAlphaR*absAlphaR);
-//     Double_t BR = nR*invAbsAlphaR - absAlphaR;
-//     return N*AR*TMath::Power(BR+t,-nR);
-//   }
+  if ( t<-absAlphaL ) {
+    //cout<<"checkpoint dscb left"<<endl;
+    Double_t AL = TMath::Power(nL*invAbsAlphaL,nL)*exp(-0.5*absAlphaL*absAlphaL);
+    Double_t BL = nL*invAbsAlphaL - absAlphaL;
+    return N*AL*TMath::Power(BL-t,-nL);
+  } else if ( t <= absAlphaR )  {
+    //cout<<"checkpoint dscb gaussian"<<endl;
+    return N*exp(-0.5*t*t);
+  } else {
+    //cout<<"checkpoint dscb right"<<endl;
+    Double_t AR = TMath::Power(nR*invAbsAlphaR,nR)*exp(-0.5*absAlphaR*absAlphaR);
+    Double_t BR = nR*invAbsAlphaR - absAlphaR;
+    return N*AR*TMath::Power(BR+t,-nR);
+  }
 
-// }
+}
 
 //=====================================================================
 
@@ -162,8 +165,14 @@ void buildChainWithFriend(TChain* chain, TChain* chFriend, string sampleName) {
 
     // 2016 2.6fb^-1
     if (DATA2016) {
-      subSampleNameVector.push_back("SingleElectron_PromptReco_v1_runs_272021_273149");
-      subSampleNameVector.push_back("SingleElectron_PromptReco_v2_runs_273150_274443");
+      if (SKIM_1LEP1JET_80X) {
+	subSampleNameVector.push_back("SingleElectron_Run2016B_PromptReco_v1_runs_272023_273146");
+	subSampleNameVector.push_back("SingleElectron_Run2016B_PromptReco_v2_runs_273150_275376");
+	subSampleNameVector.push_back("SingleElectron_Run2016C_PromptReco_v2_runs_275420_276097");
+      } else {
+	subSampleNameVector.push_back("SingleElectron_PromptReco_v1_runs_272021_273149");
+	subSampleNameVector.push_back("SingleElectron_PromptReco_v2_runs_273150_274443");
+      }
     } else {
     // 2015 2.32 fb^-1
       subSampleNameVector.push_back("SingleElectron_Run2015C_16Dec_runs_254227_254914");
@@ -171,15 +180,28 @@ void buildChainWithFriend(TChain* chain, TChain* chFriend, string sampleName) {
     }
 
   } else if (sampleName == "WJetsToLNu") {
-    
-    subSampleNameVector.push_back("WJetsToLNu_HT100to200");
-    subSampleNameVector.push_back("WJetsToLNu_HT200to400");
-    subSampleNameVector.push_back("WJetsToLNu_HT400to600");
-    subSampleNameVector.push_back("WJetsToLNu_HT600to800");
-    subSampleNameVector.push_back("WJetsToLNu_HT800to1200");
-    if (!DATA2016) subSampleNameVector.push_back("WJetsToLNu_HT1200to2500"); // note, 1200to2500 bin missing for 2016 MC
-    subSampleNameVector.push_back("WJetsToLNu_HT2500toInf"); 
 
+    if (SKIM_1LEP1JET_80X) {
+      subSampleNameVector.push_back("WJetsToLNu_HT100to200");
+      subSampleNameVector.push_back("WJetsToLNu_HT100to200_ext");
+      subSampleNameVector.push_back("WJetsToLNu_HT200to400");
+      subSampleNameVector.push_back("WJetsToLNu_HT200to400_ext");
+      subSampleNameVector.push_back("WJetsToLNu_HT400to600");
+      subSampleNameVector.push_back("WJetsToLNu_HT400to600_ext");
+      subSampleNameVector.push_back("WJetsToLNu_HT600to800");
+      subSampleNameVector.push_back("WJetsToLNu_HT800to1200");
+      subSampleNameVector.push_back("WJetsToLNu_HT800to1200_ext");
+      subSampleNameVector.push_back("WJetsToLNu_HT1200to2500");
+      subSampleNameVector.push_back("WJetsToLNu_HT2500toInf");
+    } else {    
+      subSampleNameVector.push_back("WJetsToLNu_HT100to200");
+      subSampleNameVector.push_back("WJetsToLNu_HT200to400");
+      subSampleNameVector.push_back("WJetsToLNu_HT400to600");
+      subSampleNameVector.push_back("WJetsToLNu_HT600to800");
+      subSampleNameVector.push_back("WJetsToLNu_HT800to1200");
+      if (!DATA2016) subSampleNameVector.push_back("WJetsToLNu_HT1200to2500"); // note, 1200to2500 bin missing for 2016 MC
+      subSampleNameVector.push_back("WJetsToLNu_HT2500toInf"); 
+    }
   } else {
 
     cout << "Error: unknown sampleName " << sampleName <<". End of programme" << endl;
@@ -189,15 +211,22 @@ void buildChainWithFriend(TChain* chain, TChain* chFriend, string sampleName) {
 
   //2016 trees
   string treePath = "";
-  if (DATA2016) treePath = "root://eoscms//eos/cms/store/cmst3/group/susy/emanuele/monox/trees/TREES_1LEPSKIM_80X/"; // 2016 trees
-  else treePath = "root://eoscms//eos/cms/store/cmst3/group/susy/emanuele/monox/trees/TREES_25ns_1LEPSKIM_76X/";   //2015 trees
-  
+  if (SKIM_1LEP1JET_80X) treePath = "root://eoscms//eos/cms/store/cmst3/group/susy/emanuele/monox/trees/TREES_1LEP1JET_80X/"; // 2016 trees with skim 1 lep1jet
+  else {
+    if (DATA2016) treePath = "root://eoscms//eos/cms/store/cmst3/group/susy/emanuele/monox/trees/TREES_1LEPSKIM_80X/"; // 2016 trees
+    else treePath = "root://eoscms//eos/cms/store/cmst3/group/susy/emanuele/monox/trees/TREES_25ns_1LEPSKIM_76X/";   //2015 trees
+  }
+
   for(UInt_t i = 0; i < subSampleNameVector.size(); i++) {
   
     string treeRootFile = treePath + subSampleNameVector[i] + "_treeProducerDarkMatterMonoJet_tree.root";
     string friend_treeRootFile = "";
-    if (DATA2016) friend_treeRootFile = treePath + "friends_evVarFriend_" + subSampleNameVector[i]+ ".root";
-    else friend_treeRootFile = treePath + "evVarFriend_" + subSampleNameVector[i]+ ".root";
+    if (SKIM_1LEP1JET_80X) {
+      friend_treeRootFile = treePath + "evVarFriend_" + subSampleNameVector[i]+ ".root";
+    } else {
+      if (DATA2016) friend_treeRootFile = treePath + "friends_evVarFriend_" + subSampleNameVector[i]+ ".root";
+      else friend_treeRootFile = treePath + "evVarFriend_" + subSampleNameVector[i]+ ".root";
+    }
 
     chain->Add(TString(treeRootFile.c_str()));
     chFriend->Add(TString(friend_treeRootFile.c_str()));
@@ -392,14 +421,14 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
    vector<TH1F*> hPtrackOverEtrue_corrEnergyBin(nCorrEnergyBins,NULL);
 
    for (Int_t i = 0; i < nCorrEnergyBins; i++) {
-     hEoverP_corrEnergyBin[i] = new TH1F(Form("hEoverP_corrEnergyBin%1.0fTo%1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]),"",100,0.05,2.05);
+     hEoverP_corrEnergyBin[i] = new TH1F(Form("hEoverP_corrEnergyBin%1.0fTo%1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]),"",200,0.05,2.05);
    }
 
    if (sampleName != "DATA") {
      for (Int_t i = 0; i < nCorrEnergyBins; i++) {
        hEcorrOverEtrue_corrEnergyBin[i] = new TH1F(Form("hEcorrOverEtrue_corrEnergyBin%1.0fTo%1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]),"",200,0.55,1.55);
        hErawOverEtrue_corrEnergyBin[i] = new TH1F(Form("hErawOverEtrue_corrEnergyBin%1.0fTo%1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]),"",200,0.55,1.55);
-       hPtrackOverEtrue_corrEnergyBin[i] = new TH1F(Form("hPtrackOverEtrue_corrEnergyBin%1.0fTo%1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]),"",100,0.05,2.05);
+       hPtrackOverEtrue_corrEnergyBin[i] = new TH1F(Form("hPtrackOverEtrue_corrEnergyBin%1.0fTo%1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]),"",200,0.05,2.05);
      }
    }
 
@@ -586,11 +615,15 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
     hist->SetStats(0);  
     hist->Draw("HE");
     if (sampleName == "DATA") {
-      if (corrEnergybinEdges[i] > 349.9) hist->Rebin(3); 
-      else if (corrEnergybinEdges[i] > 199.9) hist->Rebin(2); // when using E instead of Et 249.9 is ok
+      if (corrEnergybinEdges[i] > 449.9) hist->Rebin(5); 
+      else if (corrEnergybinEdges[i] > 349.9) hist->Rebin(4);
+      else if (corrEnergybinEdges[i] > 174.9) hist->Rebin(2); 
+      //else if (corrEnergybinEdges[i] > 199.9) hist->Rebin(2); // when using E instead of Et 249.9 is ok
     } else if (hNameID != "EoverP") {
       if (hNameID == "PtrackOverEtrue") {
-	hist->Rebin(2);
+	if (corrEnergybinEdges[i] > 449.9) hist->Rebin(4); 
+	else if (corrEnergybinEdges[i] > 349.9) hist->Rebin(3); 
+	else if (corrEnergybinEdges[i] > 174.9) hist->Rebin(2); 
       } else {
 	hist->GetXaxis()->SetRangeUser(0.85,1.15);
       }
@@ -627,22 +660,38 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
       else funcRangeLeft = 0.2;
       funcRangeRight = gaussEdgeR;
     }
+
     TF1 *cb1;
-    if (hNameID != "EoverP") cb1 = new TF1("cb1",&myCrystalBallLeftTail,funcRangeLeft,funcRangeRight,5);  // last parameter is the number of free parameters
-    else cb1 = new TF1("cb1",&myCrystalBallRightTail,funcRangeLeft,funcRangeRight,5);
-    cb1->SetParNames("alpha","n","mu","sigma","N");  
-    cb1->SetParLimits(cb1->GetParNumber("n"),0.1,15); 
-    if (hNameID != "EoverP") {
-      cb1->SetParLimits(cb1->GetParNumber("alpha"),-10.0,-0.01);
-      cb1->SetParameters((gaussEdgeL-gaussMean)/gaussSigma,5,gaussMean,gaussSigma,gaussNorm);
+
+    if (FIT_2SIDE_CB) {
+
+      cb1 = new TF1("cb1",&my2sideCrystalBall,funcRangeLeft,funcRangeRight,7);
+      cb1->SetParNames("alphaL","nL","mu","sigma","N","alphaR","nR");  
+      cb1->SetParLimits(cb1->GetParNumber("nL"),0.1,15);
+      cb1->SetParLimits(cb1->GetParNumber("nR"),0.1,15);
+      cb1->SetParLimits(cb1->GetParNumber("alphaL"),-10.,-0.01); 
+      cb1->SetParLimits(cb1->GetParNumber("alphaR"),0.01,10);
+      cb1->SetParameters((gaussEdgeL-gaussMean)/gaussSigma,5,gaussMean,gaussSigma,gaussNorm,(gaussEdgeR-gaussMean)/gaussSigma,5);
+
     } else {
-      cb1->SetParLimits(cb1->GetParNumber("alpha"),0.01,10);
-      cb1->SetParameters((gaussEdgeR-gaussMean)/gaussSigma,5,gaussMean,gaussSigma,gaussNorm);
+
+      if (hNameID != "EoverP") cb1 = new TF1("cb1",&myCrystalBallLeftTail,funcRangeLeft,funcRangeRight,5);  // last parameter is the number of free parameters
+      else cb1 = new TF1("cb1",&myCrystalBallRightTail,funcRangeLeft,funcRangeRight,5);
+      cb1->SetParNames("alpha","n","mu","sigma","N");  
+      cb1->SetParLimits(cb1->GetParNumber("n"),0.1,15); 
+      if (hNameID != "EoverP") {
+	cb1->SetParLimits(cb1->GetParNumber("alpha"),-10.0,-0.01);
+	cb1->SetParameters((gaussEdgeL-gaussMean)/gaussSigma,5,gaussMean,gaussSigma,gaussNorm);
+      } else {
+	cb1->SetParLimits(cb1->GetParNumber("alpha"),0.01,10);
+	cb1->SetParameters((gaussEdgeR-gaussMean)/gaussSigma,5,gaussMean,gaussSigma,gaussNorm);
+      }
+      // with the following (or some of them) it looks like the fit doesn't work well, tipically the value from fit is out of the range
+      // cb1->SetParLimits(cb1->GetParNumber("mu"),gaussMean-3.0*gaussSigma,gaussMean+3.0*gaussSigma);
+      // cb1->SetParLimits(cb1->GetParNumber("sigma"),0.1*gaussSigma,10.0*gaussSigma);
+      // cb1->SetParLimits(cb1->GetParNumber("N"),0.1*gaussNorm,10.0*gaussNorm);
     }
-    // with the following (or some of them) it looks like the fit doesn't work well, tipically the value from fit is out of the range
-    // cb1->SetParLimits(cb1->GetParNumber("mu"),gaussMean-3.0*gaussSigma,gaussMean+3.0*gaussSigma);
-    // cb1->SetParLimits(cb1->GetParNumber("sigma"),0.1*gaussSigma,10.0*gaussSigma);
-    // cb1->SetParLimits(cb1->GetParNumber("N"),0.1*gaussNorm,10.0*gaussNorm);
+
     TFitResultPtr frp1 = hist->Fit(cb1,"WL I S Q B R","HE",funcRangeLeft,funcRangeRight);
     if (hPeak != NULL) {
       hPeak->SetBinContent(i+1, frp1->Parameter(2)); // 2 is mu (starts with alpha, which is parameter number 0)  
@@ -693,7 +742,10 @@ void drawPlotDataMC(TH1F* hdata, TH1F* hmc, const string& MCSampleName, const st
   hdata->GetYaxis()->SetTitle(yAxisName.c_str());
   hdata->GetYaxis()->SetTitleSize(0.06);
   hdata->GetYaxis()->SetTitleOffset(0.8);
-
+  if (SET_SCALE_ON_Y) {
+    if (yAxisName == "peak(E/P)") hdata->GetYaxis()->SetRangeUser(0.93,1.01);
+    else if (yAxisName == "#sigma(E/P)") hdata->GetYaxis()->SetRangeUser(0.0,0.16);
+  }
   hmc->SetLineColor(kBlue);
   hmc->Draw("HE SAME");
 
@@ -725,6 +777,10 @@ void drawPlotDataMC(TH1F* hdata, TH1F* hmc, const string& MCSampleName, const st
   ratioplot->GetYaxis()->SetTitleOffset(0.45);
   ratioplot->GetYaxis()->CenterTitle();
   ratioplot->GetYaxis()->SetNdivisions(011);
+  if (SET_SCALE_ON_Y) {
+    if (yAxisName == "peak(E/P)") ratioplot->GetYaxis()->SetRangeUser(0.93,1.01);
+    else if (yAxisName == "#sigma(E/P)") ratioplot->GetYaxis()->SetRangeUser(0.0,0.16);
+  }
   //if (0) ratioplot->GetYaxis()->SetRangeUser(0.4,1.4);
   ratioplot->SetMarkerStyle(8);  //medium dot  
   ratioplot->DrawCopy("E");
@@ -786,6 +842,10 @@ void drawPlotOnlyMC(vector<TH1F*> &hmcVector, const vector<string> &legEntryName
       hmcVector[i]->GetYaxis()->SetTitle(yAxisName.c_str());
       hmcVector[i]->GetYaxis()->SetTitleSize(0.06);
       hmcVector[i]->GetYaxis()->SetTitleOffset(0.8);
+      if (SET_SCALE_ON_Y) {
+	if (yAxisName == "peak position") hmcVector[i]->GetYaxis()->SetRangeUser(0.98,1.04);
+	else if (yAxisName == "#sigma of distribution") hmcVector[i]->GetYaxis()->SetRangeUser(0.0,0.11);
+      }
     } else {
       hmcVector[i]->Draw("HE SAME");
     }
@@ -921,19 +981,31 @@ Int_t main(Int_t argc, char* argv[]) {
   sampleName.push_back("WJetsToLNu");
 
   vector<Float_t> corrEnergybinEdges;
+  // this binning looks ok
   corrEnergybinEdges.push_back(25.0);
   corrEnergybinEdges.push_back(50.0);
   corrEnergybinEdges.push_back(75.0);
   corrEnergybinEdges.push_back(100.0);
-  corrEnergybinEdges.push_back(150.0);
-  corrEnergybinEdges.push_back(200.0);
-  corrEnergybinEdges.push_back(250.0);
-  //corrEnergybinEdges.push_back(300.0);
+  corrEnergybinEdges.push_back(125.0);
+  corrEnergybinEdges.push_back(175.0);
+  corrEnergybinEdges.push_back(225.0);
+  corrEnergybinEdges.push_back(275.0);
   corrEnergybinEdges.push_back(350.0);
-  // corrEnergybinEdges.push_back(450.0);
-  // corrEnergybinEdges.push_back(600.0);
-  // corrEnergybinEdges.push_back(750.0);
+  corrEnergybinEdges.push_back(450.0);
   corrEnergybinEdges.push_back(900.0);
+
+  // corrEnergybinEdges.push_back(25.0);
+  // corrEnergybinEdges.push_back(50.0);
+  // corrEnergybinEdges.push_back(75.0);
+  // corrEnergybinEdges.push_back(100.0);
+  // corrEnergybinEdges.push_back(125.0);
+  // corrEnergybinEdges.push_back(150.0);
+  // corrEnergybinEdges.push_back(200.0);
+  // corrEnergybinEdges.push_back(250.0);
+  // corrEnergybinEdges.push_back(325.0);
+  // corrEnergybinEdges.push_back(450.0);
+  // corrEnergybinEdges.push_back(900.0);
+
 
   if(doAll_flag || doLoop_flag) {
 
@@ -976,3 +1048,11 @@ Int_t main(Int_t argc, char* argv[]) {
   return 0;
 
 }
+
+
+
+////////////////////////////////////////
+//TO BE IMPLEMENTED
+//
+//Plots of E/P asaf mean energy
+//
