@@ -44,12 +44,121 @@
 
 #include <Rtypes.h> // to use kColor
 
+#include "histoFunc.h"
+#include "Option.h"
+
+
 #define DATA2016 1
 #define SKIM_1LEP1JET_80X 1
-#define FIT_2SIDE_CB 0
-#define SET_SCALE_ON_Y 0
+#define FIT_2SIDE_CB 0      // 0 for single tail Crystal Ball for the fit, 1 for double tail
+#define SET_SCALE_ON_Y 0    // select default or user defined ranges for y axis
+#define USE_E 0 // 0 for ET and 1 for E in the binning
 
 using namespace std;
+
+
+//=====================================================================
+
+// class Option {
+
+// public:
+//   Option();
+//   ~Option();
+//   Int_t Get_data2016() const { return data2016;}
+//   Int_t Get_skim1lep1jet80X() const { return skim1lep1jet80X;}
+//   Int_t Get_fit2sideCB() const { return fit2sideCB;}
+//   Int_t Get_setScaleOnY() const { return setScaleOnY;}
+//   Int_t Get_useE() const { return useE;}
+//   string Get_dirName() const { return dirName;}
+
+//   void Set_data2016(const Int_t &value) { data2016 = value; }
+//   void Set_skim1lep1jet80X(const Int_t &value) { skim1lep1jet80X = value; }
+//   void Set_fit2sideCB(const Int_t &value) { fit2sideCB = value; }
+//   void Set_setScaleOnY(const Int_t &value) { setScaleOnY = value; }
+//   void Set_useE(const Int_t &value) { useE = value; }
+//   void Set_dirName(const string &value) { dirName = value; }
+
+
+// private:
+//   Int_t data2016;
+//   Int_t skim1lep1jet80X;
+//   Int_t fit2sideCB;
+//   Int_t setScaleOnY;
+//   Int_t useE;
+//   string dirName;
+
+// };  
+
+// Option::Option() {
+//   data2016 = 1;
+//   skim1lep1jet80X = 1;
+//   fit2sideCB = 0;
+//   setScaleOnY = 0;
+//   useE = 0;
+//   dirName = "default";
+// }
+
+// Option::~Option() {
+//   cout<<"Option::~Option() called"<<endl;
+// }
+
+//=====================================================================
+
+void getEoP_templateMC(TH1F *hinput = NULL, const string& dirName = "") {
+
+  string fileName = dirName + "EoverP_WJetsToLNu.root";  // template is created when running on MC, and is stored in this file
+
+  TH1::AddDirectory(kFALSE);  // with this line the histogram taken with TFile::Get() is no more associated to the file (no need to Clone anymore)
+  // note that even though I clone the object, if the file is closed the clone is lost, as it happens for the object retrieved with TFile::Get()
+
+  TH1F *htmp = NULL;
+
+  cout << "Opening file " << fileName << endl;
+
+  TFile* f = TFile::Open(fileName.c_str(),"READ");
+  if (!f || !f->IsOpen()) {
+    cout<<"*******************************"<<endl;
+    cout<<"Error opening file \""<<fileName<<"\".\nApplication will be terminated."<<endl;
+    cout<<"*******************************"<<endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // get E/P template from file
+  htmp = (TH1F*)f->Get("hEoP_template");  
+  if (!htmp) {
+    cout << "Error: histogram " << htmp->GetName() << " not found in file ' " << fileName << "'. End of programme." << endl;
+    exit(EXIT_FAILURE);
+  }
+  htmp->SetDirectory(0);
+  //  hinput = (TH1F*) htmp->Clone();
+  hinput = new TH1F(*htmp);  // it looks like that after exiting the function hinput is gone
+  if (!hinput) {
+    cout << "Error in function getEoP_templateMC(TH1F * hinput, const string& dirName): hinput is NULL. End of programme." << endl;
+    exit(EXIT_FAILURE);
+  }
+
+  //  f->Close();
+
+}
+
+
+//=====================================================================
+
+
+void getLowAndUpBinGivenRange(const TH1F* histo, const Double_t &lowerX, const Double_t &upperX, Int_t &lowBin, Int_t &upBin) {
+  lowBin = histo->GetXaxis()->FindFixBin(lowerX);
+  upBin = histo->GetXaxis()->FindFixBin(upperX);
+}
+
+Int_t getLowBinGivenRange(const TH1F* histo, const Double_t &lowerX) {
+  Int_t lowBin = histo->GetXaxis()->FindFixBin(lowerX);
+  return lowBin;
+}
+
+Int_t getUpBinGivenRange(const TH1F* histo, const Double_t &upperX) {
+  Int_t upBin = histo->GetXaxis()->FindFixBin(upperX);
+  return upBin;
+}
 
 //=====================================================================
 
@@ -244,86 +353,6 @@ void buildChainWithFriend(TChain* chain, TChain* chFriend, string sampleName) {
 
 }
 
-//============================================================
-
-Double_t getEffectiveSigma(const TH1F* histo_) {
- 
-  //copied from Emanuele
- 
-  const TAxis *xaxis = histo_->GetXaxis();
-  Int_t nb = xaxis->GetNbins();
-  if(nb < 10) {
-    cout << "effsigma: Not a valid histo. nbins = " << nb << endl;
-    return 0.;
-  }
-  
-  Double_t bwid = xaxis->GetBinWidth(1);
-  if(bwid == 0) {
-    cout << "effsigma: Not a valid histo. bwid = " << bwid << endl;
-    return 0.;
-  }
-  // Double_t xmax = xaxis->GetXmax();
-  Double_t xmin = xaxis->GetXmin();
-  Double_t ave = histo_->GetMean();
-  Double_t rms = histo_->GetRMS();
-
-  Double_t total=0.;
-  for(Int_t i=0; i<nb+2; i++) {
-    total+=histo_->GetBinContent(i);
-  }
-  if(total < 100.) {
-    cout << "effsigma: Too few entries " << total << endl;
-    return 0.;
-  }
-  Int_t ierr=0;
-  Int_t ismin=999;
-  
-  Double_t rlim=0.683*total;
-  Int_t nrms=rms/(bwid);    // Set scan size to +/- rms
-  if(nrms > nb/10) nrms=nb/10; // Could be tuned...
-
-  Double_t widmin=9999999.;
-  for(Int_t iscan=-nrms;iscan<nrms+1;iscan++) { // Scan window centre
-    Int_t ibm=(ave-xmin)/bwid+1+iscan;
-    Double_t x=(ibm-0.5)*bwid+xmin;
-    Double_t xj=x;
-    Double_t xk=x;
-    Int_t jbm=ibm;
-    Int_t kbm=ibm;
-    Double_t bin=histo_->GetBinContent(ibm);
-    total=bin;
-    for(Int_t j=1;j<nb;j++){
-      if(jbm < nb) {
-        jbm++;
-        xj+=bwid;
-        bin=histo_->GetBinContent(jbm);
-        total+=bin;
-        if(total > rlim) break;
-      }
-      else ierr=1;
-      if(kbm > 0) {
-        kbm--;
-        xk-=bwid;
-        bin=histo_->GetBinContent(kbm);
-        total+=bin;
-        if(total > rlim) break;
-      }
-      else ierr=1;
-    }
-    Double_t dxf=(total-rlim)*bwid/bin;
-    Double_t wid=(xj-xk+bwid-dxf)*0.5;
-    if(wid < widmin) {
-      widmin=wid;
-      ismin=iscan;
-    }   
-  }
-  if(ismin == nrms || ismin == -nrms) ierr=3;
-  if(ierr != 0) cout << "effsigma: Error of type " << ierr << endl;
-  
-  return widmin;
-
-}
-
 //============================================================   
 
 Int_t getBinNumber(const Float_t value, const vector<Float_t> &binEdgesVector) {
@@ -414,7 +443,8 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
    }
 
    vector<TH1F*> hEoverP_corrEnergyBin(nCorrEnergyBins,NULL);
-   //TH1F* hEoverP_corrEnergyBin[nCorrEnergyBins];
+   // histogram to store the mean energy in a given bin, useful to plot E/P asf of the mean energy in the bin with a TGraph
+   TH1F* hMeanEnergyInCorrEnergyBin = new TH1F("hMeanEnergyInCorrEnergyBin","",nCorrEnergyBins,corrEnergybinEdges.data());
 
    vector<TH1F*> hEcorrOverEtrue_corrEnergyBin(nCorrEnergyBins,NULL);
    vector<TH1F*> hErawOverEtrue_corrEnergyBin(nCorrEnergyBins,NULL);
@@ -432,6 +462,8 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
      }
    }
 
+   TH1F* hEoP_template = new TH1F("hEoP_template","template",200,0.05,2.05);
+
    // Float_t lowMeanCut = 0.85;
    // Float_t upMeanCut = 1.15;
 
@@ -440,9 +472,6 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
    Int_t MCtruthMatchFound = 0;
    Float_t Etrue = 0.0; 
    /////////////////////////
-
-   // TH1F* hMeanEoverP = new TH1F("hMeanEoverP","",nCorrEnergyBins,corrEnergybinEdges.data());
-   // TH1F* hModeEoverP = new TH1F("hModeEoverP","",nCorrEnergyBins,corrEnergybinEdges.data());
 
    Long64_t nentries = fChain->GetEntriesFast();
 
@@ -501,15 +530,24 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
 
       // end of loop to match gen and reco electrons
 
+      Double_t energyToUse = LepGood_correctedEcalEnergy[0];
+      if (!USE_E) {
+	Double_t theta = 2. * atan(exp(-LepGood_eta[0])); 
+	energyToUse *= sin(theta);
+      } 
 
-      // look for the bin in the LepGood_correctedEcalEnergy variable
-      Double_t theta = 2. * atan(exp(-LepGood_eta[0])); 
-      Double_t energyToUse = LepGood_correctedEcalEnergy[0]*sin(theta); 
+      hEoP_template->Fill(LepGood_eSuperClusterOverP[0]);
+
+      // look for the bin in the LepGood_correctedEcalEnergy variable      
       Int_t bin = getBinNumber(energyToUse,corrEnergybinEdges);  // this function returns negative value if bin not found
 
       if (bin >= 0) {
 
 	hEoverP_corrEnergyBin[bin]->Fill(LepGood_eSuperClusterOverP[0]);
+
+	//sum the energy to the bin content in the bin it belongs to (at the end we will divide by the number of entries in each bin)
+	// using bin+1 because the histogram bin number goes from 1 to number of bins, while "bin" variable starts from 0
+	hMeanEnergyInCorrEnergyBin->SetBinContent(bin+1, energyToUse + hMeanEnergyInCorrEnergyBin->GetBinContent(bin+1));  
 
 	if (MCtruthMatchFound) {
 
@@ -536,7 +574,21 @@ void EoverP::Loop(const string sampleName, const vector<Float_t> &corrEnergybinE
      hEoverP_corrEnergyBin[i]->GetYaxis()->SetTitleSize(0.055);
      hEoverP_corrEnergyBin[i]->GetYaxis()->SetTitleOffset(0.8);
 
+     hMeanEnergyInCorrEnergyBin->SetBinContent(i+1, hMeanEnergyInCorrEnergyBin->GetBinContent(i+1)/hEoverP_corrEnergyBin[i]->GetEntries());
+
    }
+
+   if (USE_E) {
+     hMeanEnergyInCorrEnergyBin->GetXaxis()->SetTitle("corrected E [GeV]");
+     hMeanEnergyInCorrEnergyBin->GetYaxis()->SetTitle("mean E [GeV]");
+   } else {
+     hMeanEnergyInCorrEnergyBin->GetXaxis()->SetTitle("corrected E_{T} [GeV]");
+     hMeanEnergyInCorrEnergyBin->GetYaxis()->SetTitle("mean E_{T} [GeV]");
+   }
+   hMeanEnergyInCorrEnergyBin->GetXaxis()->SetTitleSize(0.06);
+   hMeanEnergyInCorrEnergyBin->GetXaxis()->SetTitleOffset(0.8);
+   hMeanEnergyInCorrEnergyBin->GetYaxis()->SetTitleSize(0.055);
+   hMeanEnergyInCorrEnergyBin->GetYaxis()->SetTitleOffset(0.8);
 
    if (sampleName != "DATA") {
 
@@ -581,7 +633,7 @@ void getTexMCSampleName(const string &MCSampleName, string &texMCSampleName) {
 
 }
 
-void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnergybinEdges, TH1F* hPeak, TH1F* hSigma, const string &hNameID, const string &dirName) {
+void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnergybinEdges, TH1F* hPeak, TH1F* hSigma, const string &hNameID, const string &dirName, TH1F* hPeakShift_MCdata = NULL) {
 
   TH1::SetDefaultSumw2(); //all the following histograms will automatically call TH1::Sumw2() 
   TVirtualFitter::SetDefaultFitter("Minuit");
@@ -600,23 +652,79 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
     cout<<"*******************************"<<endl;
     exit(EXIT_FAILURE);
   }
+
+  TH1F* hEoP_template = NULL;
+  // get E/P template from MC file
+
+  // -----------------------------------------------------------
+  // get MC template. If running on data, open MC file, else the file is already the right one and I just need to get histograms
+
+  TFile* fMC = NULL;  // to get MC file when running on data
+  string fileNameMC = dirName + "EoverP_WJetsToLNu.root";  // template is created when running on MC, and is stored in this file
+
+  if (sampleName == "DATA") {
+
+    //    getEoP_templateMC(hEoP_template, dirName);
+    cout << "Running on data. Opening file " << fileNameMC << " to get template." << endl;
+
+    fMC = TFile::Open(fileNameMC.c_str(),"READ");
+    if (!fMC || !fMC->IsOpen()) {
+      cout<<"*******************************"<<endl;
+      cout<<"Error opening file \""<<fileNameMC<<"\".\nApplication will be terminated."<<endl;
+      cout<<"*******************************"<<endl;
+      exit(EXIT_FAILURE);
+    }
     
+  //   // get E/P template from file
+  //   htmp = (TH1F*)fMC->Get("hEoP_template");  
+  //   if (!htmp) {
+  //     cout << "Error: histogram " << htmp->GetName() << " not found in file ' " << fileNameMC << "'. End of programme." << endl;
+  //     exit(EXIT_FAILURE);
+  //   }
+  //   hEoP_template = (TH1F*) htmp->Clone();
+    
+  } else {
+
+  //   htmp = (TH1F*)f->Get("hEoP_template");  
+  //   if (!htmp) {
+  //     cout << "Error: histogram " << htmp->GetName() << " not found in file ' " << fileName << "'. End of programme." << endl;
+  //     exit(EXIT_FAILURE);
+  //   }
+  //   hEoP_template = (TH1F*) htmp->Clone();
+
+  // }
+
+  // if (!hEoP_template) {
+  //   cout << "Error: hEoP_template is NULL! End of programme." << endl;
+  //   exit(EXIT_FAILURE);
+  }
+
+  // end of access of MC file to get templates
+  // -----------------------------------------------------------
+
   UInt_t nBins = corrEnergybinEdges.size() -1;
 
   for (UInt_t i = 0; i < nBins; i++) {
 
     htmp = (TH1F*)f->Get(Form("h%s_corrEnergyBin%1.0fTo%1.0f",hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1]));  
     if (!htmp) {
-      cout << "Error: histogram not found in file ' " << fileName << "'. End of programme." << endl;
+      cout << "Error: histogram " << htmp->GetName() << " not found in file ' " << fileName << "'. End of programme." << endl;
       exit(EXIT_FAILURE);
     }
-    hist = (TH1F*)htmp->Clone();
+    // now, if using data I will fit with template obtained from the same distribution in MC file. Since the histogram's name is the same in both file, I 
+    // got a strange behaviour, that is, when using fMC->Get(<name>) I actually get the same histogram in data. A solution is deleting the previous histogram
+    // got from data file before getting that for MC. In this case, better to give the clone a different name to make explicit it is for data 
+    if (sampleName == "DATA") hist = (TH1F*)htmp->Clone(Form("%s_data",htmp->GetName()));
+    else hist = (TH1F*)htmp->Clone();
 
-    hist->SetStats(0);  
+    //    hist->SetStats(0);
+    gStyle->SetOptStat(10);
+    gStyle->SetOptFit(0112);
     hist->Draw("HE");
     if (sampleName == "DATA") {
       if (corrEnergybinEdges[i] > 449.9) hist->Rebin(5); 
       else if (corrEnergybinEdges[i] > 349.9) hist->Rebin(4);
+      else if (corrEnergybinEdges[i] > 274.9) hist->Rebin(3); 
       else if (corrEnergybinEdges[i] > 174.9) hist->Rebin(2); 
       //else if (corrEnergybinEdges[i] > 199.9) hist->Rebin(2); // when using E instead of Et 249.9 is ok
     } else if (hNameID != "EoverP") {
@@ -627,6 +735,9 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
       } else {
 	hist->GetXaxis()->SetRangeUser(0.85,1.15);
       }
+    } else {
+      if (corrEnergybinEdges[i] > 449.9) hist->Rebin(3); 
+      else if (corrEnergybinEdges[i] > 224.9) hist->Rebin(2);      
     }
     c->Update();
 
@@ -647,7 +758,7 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
 	gaussEdgeR = 1.05;	
       }
     }
-    hist->Fit("gaus","WL I Q 0","",gaussEdgeL,gaussEdgeR);  // L: loglikelihood method, 0: do not plot this fit, Q: quiet mode (minimum printing)
+    hist->Fit("gaus","E L I Q 0","",gaussEdgeL,gaussEdgeR);  // L: loglikelihood method, 0: do not plot this fit, Q: quiet mode (minimum printing)
     Double_t gaussNorm = hist->GetFunction("gaus")->GetParameter(0);
     Double_t gaussMean = hist->GetFunction("gaus")->GetParameter(1);
     //Double_t gaussMeanError = hist->GetFunction("gaus")->GetParError(1);
@@ -655,10 +766,25 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
     // now use crystal ball with right tail
     Double_t funcRangeLeft = gaussEdgeL;
     Double_t funcRangeRight = 2.0;
-    if (hNameID != "EoverP") {
-      if (hNameID != "PtrackOverEtrue") funcRangeLeft = 0.8;
-      else funcRangeLeft = 0.2;
-      funcRangeRight = gaussEdgeR;
+    if (FIT_2SIDE_CB) {
+      if (hNameID != "EoverP") {
+	if (hNameID != "PtrackOverEtrue") {
+	  funcRangeLeft = 0.8;
+	  funcRangeRight = gaussEdgeR;
+	} else {
+	  funcRangeLeft = 0.2;
+	  funcRangeRight = 1.3;
+	}
+      } else {
+	funcRangeLeft = 0.5;
+      }
+    }
+    else {
+      if (hNameID != "EoverP") {
+	if (hNameID != "PtrackOverEtrue") funcRangeLeft = 0.8;
+	else funcRangeLeft = 0.2;
+	funcRangeRight = gaussEdgeR;
+      }
     }
 
     TF1 *cb1;
@@ -672,6 +798,7 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
       cb1->SetParLimits(cb1->GetParNumber("alphaL"),-10.,-0.01); 
       cb1->SetParLimits(cb1->GetParNumber("alphaR"),0.01,10);
       cb1->SetParameters((gaussEdgeL-gaussMean)/gaussSigma,5,gaussMean,gaussSigma,gaussNorm,(gaussEdgeR-gaussMean)/gaussSigma,5);
+      cb1->SetLineColor(kRed);
 
     } else {
 
@@ -692,26 +819,156 @@ void plotDistribution(const string &sampleName, const vector<Float_t> &corrEnerg
       // cb1->SetParLimits(cb1->GetParNumber("N"),0.1*gaussNorm,10.0*gaussNorm);
     }
 
-    TFitResultPtr frp1 = hist->Fit(cb1,"WL I S Q B R","HE",funcRangeLeft,funcRangeRight);
+    // build TLegend
+    TLegend *leg = new TLegend(0.11,0.8,0.4,0.89);
+    TLegend *legFitFunction = new TLegend(0.11,0.5,0.35,0.8);
+
+    // do the fit
+    // before fitting, clone hist . Will use the clone to do the fit with the template. This is needed to plot 2 statistic boxes for crystal Ball and template fit
+    TH1F* histClone = (TH1F*) hist->Clone("histClone");
+    TFitResultPtr frp1 = hist->Fit(cb1,"E L I S Q B R","HE",funcRangeLeft,funcRangeRight);
+    leg->AddEntry(hist,"distribution","l");
+    legFitFunction->SetHeader("fit functions:");
+    legFitFunction->AddEntry(cb1,"Crystal Ball","l");
+    TFitResultPtr frp_template;
+    TF1* f_EoP_template = NULL;
+
+    if (sampleName == "DATA" && hNameID == "EoverP") {
+
+      // ----------------------------------------------------------------
+      // fitting with template (only for data and for E/P
+      
+      // ------------------------------------------------------------
+      // get binned MC histograms to use them as template
+	
+      //    getEoP_templateMC(hEoP_template, dirName);
+    
+      // get E/P template from file
+
+      // before getting the template, delete the same named histogram from data file, otherwise I am getting the same data histogram despite the fact that
+      // I'm using the pointer to MC file
+      delete htmp;
+      fMC->cd();
+      TH1F* htmpMC = NULL;
+      htmpMC = (TH1F*)fMC->Get(Form("hEoverP_corrEnergyBin%1.0fTo%1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]));  
+      if (!htmpMC) {
+	cout << "Error: histogram " << htmpMC->GetName() << " not found in file ' " << fileNameMC << "'. End of programme." << endl;
+	exit(EXIT_FAILURE);
+      } else {
+	//cout << "Energy ["<< corrEnergybinEdges[i] <<"," <<corrEnergybinEdges[i+1]<< "] \t max htmpMC: " << htmpMC->GetBinContent(htmpMC->GetMaximumBin()) << endl;
+      }
+
+      hEoP_template = (TH1F*) htmpMC->Clone(Form("hEoverP_corrEnergyBin%1.0fTo%1.0f_MC",corrEnergybinEdges[i],corrEnergybinEdges[i+1]));
+      if (!hEoP_template) {
+	cout << "Error: hEoP_template is NULL! End of programme." << endl;
+	exit(EXIT_FAILURE);
+      }	
+      // rebinning if needed
+      if (corrEnergybinEdges[i] > 449.9) hEoP_template->Rebin(3); 
+      else if (corrEnergybinEdges[i] > 174.9) hEoP_template->Rebin(2);      
+
+      // end of access of MC file to get templates
+      // -----------------------------------------------------------
+
+      // class defining the template function
+      histoFunc* templateHistoFunc = new histoFunc(hEoP_template); 
+      //cout << "templateHistoFunc->GetIntegral() : " << templateHistoFunc->GetIntegral() << endl;
+      Double_t templateFitRangeLow = 0.6;  // 0.7
+      Double_t templateFitRangeUp = 2.0;   // 2.0 
+      f_EoP_template = new TF1("f_EoP_template", templateHistoFunc, templateFitRangeLow, templateFitRangeUp, 3, "histoFunc");
+      f_EoP_template -> SetParName(0,"Norm"); 
+      f_EoP_template -> SetParName(1,"Scale factor");
+      f_EoP_template -> SetParName(2,"Shift of x"); 
+      //      f_EoP_template -> SetLineWidth(1); 
+      f_EoP_template -> SetNpx(10000);
+      //Double_t xNorm = histClone->GetEntries()/hEoP_template->GetEntries() * histClone->GetBinWidth(1)/hEoP_template->GetBinWidth(1); // GetEntries includes under/overflow
+      Double_t xNorm = histClone->Integral(getLowBinGivenRange(histClone,templateFitRangeLow),getUpBinGivenRange(histClone,templateFitRangeUp)) /
+	hEoP_template->Integral(getLowBinGivenRange(hEoP_template,templateFitRangeLow),getUpBinGivenRange(hEoP_template,templateFitRangeUp)) * 
+	histClone->GetBinWidth(1)/hEoP_template->GetBinWidth(1); 
+      // f_EoP_template -> SetParameter(0, xNorm);
+      // f_EoP_template -> SetParLimits(0, 0.95 * xNorm, 1.05 * xNorm);
+      f_EoP_template -> FixParameter(0, xNorm);
+      f_EoP_template -> SetParameter(1, 1.0);  // maybe this should be the inverse of the width ratio
+      f_EoP_template -> SetParLimits(1,0.1,10.0); 
+      Double_t MC_data_peakDeltaX = hEoP_template->GetBinCenter(hEoP_template->GetMaximumBin()) - frp1->Parameter(2);
+      f_EoP_template -> SetParameter(2, MC_data_peakDeltaX);  // will set this to Dx between peak in data and MC ( MC - data )
+      f_EoP_template -> SetParLimits(2, 0.1 * MC_data_peakDeltaX, 10.0 * MC_data_peakDeltaX);  // will set this to Dx between peak in data and MC ( MC - data )
+      //Double_t MC_data_peakDeltaX = 0.2;
+      //f_EoP_template -> FixParameter(2, MC_data_peakDeltaX);  // will set this to Dx between peak in data and MC ( MC - data )
+      f_EoP_template -> SetLineColor(kGreen+2);
+      // -----------------------------------------------------------------
+
+      frp_template = histClone->Fit("f_EoP_template","E L I S Q B R","HE SAMES", templateFitRangeLow,templateFitRangeUp);
+      legFitFunction->AddEntry(f_EoP_template,"MC template","l");
+
+    }
+
+    leg->Draw();
+    leg->SetMargin(0.3); 
+    leg->SetBorderSize(0);
+
+    legFitFunction->Draw();
+    legFitFunction->SetMargin(0.3); 
+    legFitFunction->SetBorderSize(0);
+
+    c->Update();
+    // box for fit with Crystal Ball
+    TPaveStats *stat = (TPaveStats*)(hist->FindObject("stats"));
+    if(stat) {
+      // stat->SetTextColor(kBlue);
+      // stat1->SetTextColor(kGreen);
+      float width = stat->GetX2NDC() - stat->GetX1NDC();
+      // make stat box bigger
+      stat->SetX1NDC(stat->GetX1NDC() - 0.5 * width);     
+      stat->Draw();
+    }
+    // Box for fit with template (data only)
+    TPaveStats *stat1 = NULL;
+    if (sampleName == "DATA") {
+      histClone->Draw("HE SAME");
+      c->Update();
+      stat1 = (TPaveStats*)(histClone->FindObject("stats"));
+      if (stat1) {
+	float height = stat1->GetY2NDC() - stat1->GetY1NDC();
+	stat1->SetY1NDC(stat->GetY1NDC() - height);
+	stat1->SetY2NDC(stat->GetY1NDC() );
+	stat1->SetX1NDC(stat->GetX1NDC());
+	stat1->Draw();
+      }
+    }
+
     if (hPeak != NULL) {
       hPeak->SetBinContent(i+1, frp1->Parameter(2)); // 2 is mu (starts with alpha, which is parameter number 0)  
       hPeak->SetBinError(i+1, frp1->ParError(2)); // 2 is mu (starts with alpha, which is parameter number 0)  
+    }
+    if (hPeakShift_MCdata  != NULL) {
+      hPeakShift_MCdata ->SetBinContent(i+1, frp_template->Parameter(2)); // 2 is deltaX 
+      hPeakShift_MCdata ->SetBinError(i+1, frp_template->ParError(2)); // 2 is deltaX 
     }
     if (hSigma != NULL) {
       hSigma->SetBinContent(i+1, frp1->Parameter(3)); // 2 is mu (starts with alpha, which is parameter number 0)  
       hSigma->SetBinError(i+1, frp1->ParError(3)); // 2 is mu (starts with alpha, which is parameter number 0)  
     }
 
-    hist->SetTitle(Form("%1.0f < E_{T}[GeV] < %1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]));
-    
-    c->SaveAs(Form("%s%sdistribution_ET%1.0fTo%1.0f_%s.pdf",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
-    c->SaveAs(Form("%s%sdistribution_ET%1.0fTo%1.0f_%s.png",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
+    if (USE_E) {      
+      hist->SetTitle(Form("%1.0f < E [GeV] < %1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]));
+      c->SaveAs(Form("%s%sdistribution_E%1.0fTo%1.0f_%s.pdf",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
+      c->SaveAs(Form("%s%sdistribution_E%1.0fTo%1.0f_%s.png",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
+    } else {
+      hist->SetTitle(Form("%1.0f < E_{T}[GeV] < %1.0f",corrEnergybinEdges[i],corrEnergybinEdges[i+1]));
+      c->SaveAs(Form("%s%sdistribution_ET%1.0fTo%1.0f_%s.pdf",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
+      c->SaveAs(Form("%s%sdistribution_ET%1.0fTo%1.0f_%s.png",dirName.c_str(),hNameID.c_str(),corrEnergybinEdges[i],corrEnergybinEdges[i+1],sampleName.c_str()));
+    }
 
   }
 
+  //cout << "CHECK 1" << endl;
   delete c;
-  delete htmp;
-  delete hist;
+  //cout << "CHECK 2" << endl;
+  //delete htmp;
+  //cout << "CHECK 3" << endl;
+  //delete hist;  // if I delete hist I get segmentation fault (it didn't happen before trying to fit with template)
+  //cout << "CHECK 4" << endl;
 
 }
 
@@ -743,8 +1000,14 @@ void drawPlotDataMC(TH1F* hdata, TH1F* hmc, const string& MCSampleName, const st
   hdata->GetYaxis()->SetTitleSize(0.06);
   hdata->GetYaxis()->SetTitleOffset(0.8);
   if (SET_SCALE_ON_Y) {
-    if (yAxisName == "peak(E/P)") hdata->GetYaxis()->SetRangeUser(0.93,1.01);
-    else if (yAxisName == "#sigma(E/P)") hdata->GetYaxis()->SetRangeUser(0.0,0.16);
+    if (yAxisName == "peak(E/P)") {
+      hdata->SetMinimum(0.94);
+      hdata->SetMinimum(0.965);
+      hdata->SetMaximum(1.005);
+    } else if (yAxisName == "#sigma(E/P)") {
+      hdata->SetMinimum(0.02);
+      hdata->SetMaximum(0.15);
+    }
   }
   hmc->SetLineColor(kBlue);
   hmc->Draw("HE SAME");
@@ -777,16 +1040,24 @@ void drawPlotDataMC(TH1F* hdata, TH1F* hmc, const string& MCSampleName, const st
   ratioplot->GetYaxis()->SetTitleOffset(0.45);
   ratioplot->GetYaxis()->CenterTitle();
   ratioplot->GetYaxis()->SetNdivisions(011);
-  if (SET_SCALE_ON_Y) {
-    if (yAxisName == "peak(E/P)") ratioplot->GetYaxis()->SetRangeUser(0.93,1.01);
-    else if (yAxisName == "#sigma(E/P)") ratioplot->GetYaxis()->SetRangeUser(0.0,0.16);
-  }
-  //if (0) ratioplot->GetYaxis()->SetRangeUser(0.4,1.4);
   ratioplot->SetMarkerStyle(8);  //medium dot  
-  ratioplot->DrawCopy("E");
+  TH1F *ratioplotCopy = (TH1F*) ratioplot->DrawCopy("E");
+  //ratioplot->Draw("E");
+  if (SET_SCALE_ON_Y) {
+    if (yAxisName == "peak(E/P)") {
+      ratioplotCopy->SetMinimum(0.97);
+      ratioplotCopy->SetMinimum(0.985);
+      ratioplotCopy->SetMaximum(1.015);
+    } else if (yAxisName == "#sigma(E/P)") {
+      // ratioplotCopy->SetMinimum(0.9);
+      // ratioplotCopy->SetMaximum(0.14);
+    }
+  }
+
   cfit->SaveAs( (dirName + canvasName + ".pdf").c_str() );
   cfit->SaveAs( (dirName + canvasName + ".png").c_str() );
 
+  delete cfit;
 
 }
 
@@ -887,6 +1158,7 @@ void drawPlotOnlyMC(vector<TH1F*> &hmcVector, const vector<string> &legEntryName
   cfitMC->SaveAs( (dirName + canvasName + ".pdf").c_str() );
   cfitMC->SaveAs( (dirName + canvasName + ".png").c_str() );
 
+  delete cfitMC;
 
 }
 
@@ -901,11 +1173,46 @@ void plotFromFit(const string &dataSampleName, const string &MCSampleName, const
   TH1F* hPeakEoverPmc = new TH1F("hPeakEoverPmc","",nCorrEnergyBins,corrEnergybinEdges.data());
   TH1F* hSigmaEoverPmc = new TH1F("hSigmaEoverPmc","",nCorrEnergyBins,corrEnergybinEdges.data());
 
-  plotDistribution(dataSampleName, corrEnergybinEdges, hPeakEoverPdata, hSigmaEoverPdata, "EoverP",dirName);
+  TH1F* hPeakShift_MCdata = new TH1F("hPeakShift_MCdata","",nCorrEnergyBins,corrEnergybinEdges.data()); 
+
+  plotDistribution(dataSampleName, corrEnergybinEdges, hPeakEoverPdata, hSigmaEoverPdata, "EoverP",dirName, hPeakShift_MCdata);
   plotDistribution(MCSampleName, corrEnergybinEdges, hPeakEoverPmc, hSigmaEoverPmc, "EoverP",dirName);
 
-  drawPlotDataMC(hPeakEoverPdata, hPeakEoverPmc, MCSampleName, "corrected E_{T} [GeV]", "peak(E/P)", "modeEoverPfromFit",dirName);
-  drawPlotDataMC(hSigmaEoverPdata, hSigmaEoverPmc, MCSampleName, "corrected E_{T} [GeV]", "#sigma(E/P)", "sigmaEoverPfromFit",dirName);
+  TH1F* hPeakEoverPdata_templateFit = NULL;
+  if (hPeakShift_MCdata) hPeakEoverPdata_templateFit = new TH1F("hPeakEoverPdata_templateFit","",nCorrEnergyBins,corrEnergybinEdges.data());
+  if (hPeakEoverPdata_templateFit) {
+    hPeakEoverPdata_templateFit->Sumw2();
+    hPeakEoverPdata_templateFit->Add(hPeakEoverPmc,hPeakShift_MCdata,1.0,-1.0);  // data = MC - ("MC-Data")
+  }
+
+  if (USE_E) {
+    drawPlotDataMC(hPeakEoverPdata, hPeakEoverPmc, MCSampleName, "corrected E [GeV]", "peak(E/P)", "modeEoverPfromFit",dirName);
+    if (hPeakEoverPdata_templateFit) drawPlotDataMC(hPeakEoverPdata_templateFit, hPeakEoverPmc, MCSampleName, "corrected E [GeV]", "peak(E/P)", "modeEoverPfromTemplateFit",dirName);
+    drawPlotDataMC(hSigmaEoverPdata, hSigmaEoverPmc, MCSampleName, "corrected E [GeV]", "#sigma(E/P)", "sigmaEoverPfromFit",dirName);
+  } else {
+    drawPlotDataMC(hPeakEoverPdata, hPeakEoverPmc, MCSampleName, "corrected E_{T} [GeV]", "peak(E/P)", "modeEoverPfromFit",dirName);
+    if (hPeakEoverPdata_templateFit) drawPlotDataMC(hPeakEoverPdata_templateFit, hPeakEoverPmc, MCSampleName, "corrected E_{T} [GeV]", "peak(E/P)", "modeEoverPfromTemplateFit",dirName);
+    drawPlotDataMC(hSigmaEoverPdata, hSigmaEoverPmc, MCSampleName, "corrected E_{T} [GeV]", "#sigma(E/P)", "sigmaEoverPfromFit",dirName);
+  }
+
+  // quick plot of the shift between data and MC peak, as obtained from fit of data distribution with MC template
+
+  TCanvas *cshift = new TCanvas("cshift","");
+  if (hPeakShift_MCdata) {
+    hPeakShift_MCdata->SetStats(0);
+    hPeakShift_MCdata->Draw("HE");
+    if (USE_E) hPeakShift_MCdata->GetXaxis()->SetTitle("corrected E [GeV]");
+    else hPeakShift_MCdata->GetXaxis()->SetTitle("corrected E_{T} [GeV]");
+    hPeakShift_MCdata->GetYaxis()->SetTitle("peak shift (MC - DATA) from template fit");
+    hPeakShift_MCdata->GetXaxis()->SetLabelSize(0.05);
+    hPeakShift_MCdata->GetXaxis()->SetTitleSize(0.06);
+    hPeakShift_MCdata->GetXaxis()->SetTitleOffset(0.8);
+    hPeakShift_MCdata->GetYaxis()->SetTitleSize(0.045);
+    hPeakShift_MCdata->GetYaxis()->SetTitleOffset(1.1);
+    cshift->SaveAs((dirName + "EoverP_peakShift_MCdata.png").c_str());
+    cshift->SaveAs((dirName + "EoverP_peakShift_MCdata.pdf").c_str());
+  }
+  delete cshift;  
 
   // MC only study
 
@@ -935,8 +1242,13 @@ void plotFromFit(const string &dataSampleName, const string &MCSampleName, const
   legEntryName.push_back("E_{raw}/E_{true}");
   legEntryName.push_back("P_{track}/E_{true}");
 
-  drawPlotOnlyMC(hPeakVectorMC, legEntryName, MCSampleName, "corrected E_{T} [GeV]", "peak position", "modeMCstudy",dirName); 
-  drawPlotOnlyMC(hSigmaVectorMC, legEntryName, MCSampleName, "corrected E_{T} [GeV]", "#sigma of distribution", "sigmaMCstudy",dirName); 
+  if (USE_E) {
+    drawPlotOnlyMC(hPeakVectorMC, legEntryName, MCSampleName, "corrected E [GeV]", "peak position", "modeMCstudy",dirName); 
+    drawPlotOnlyMC(hSigmaVectorMC, legEntryName, MCSampleName, "corrected E [GeV]", "#sigma of distribution", "sigmaMCstudy",dirName); 
+  } else {
+    drawPlotOnlyMC(hPeakVectorMC, legEntryName, MCSampleName, "corrected E_{T} [GeV]", "peak position", "modeMCstudy",dirName); 
+    drawPlotOnlyMC(hSigmaVectorMC, legEntryName, MCSampleName, "corrected E_{T} [GeV]", "#sigma of distribution", "sigmaMCstudy",dirName); 
+  }
 
 
 }
@@ -952,6 +1264,13 @@ Int_t main(Int_t argc, char* argv[]) {
 
   string dirName = "";   // will be a path like "plot/<name>/" . Note the ending "/" 
 
+  Option* option = new Option();
+  option->Set_data2016(1);
+  option->Set_skim1lep1jet80X(1);
+  option->Set_fit2sideCB(0);
+  option->Set_setScaleOnY(1);
+  option->Set_useE(1);
+ 
   if (argc > 1) {
 
     for (Int_t i = 1; i < argc; i++) {
@@ -968,6 +1287,7 @@ Int_t main(Int_t argc, char* argv[]) {
       } else if (thisArgument == "-dn") {   // -dn --> directory name
 	cout << "Passing option -dn: passing name for directories to be created" << endl;
 	dirName = string(argv[i+1]);
+	option->Set_dirName(string(argv[i+1]));
 	cout << "Saving output in '" << dirName << "'" << endl;
 	i++;
       }
@@ -989,10 +1309,16 @@ Int_t main(Int_t argc, char* argv[]) {
   corrEnergybinEdges.push_back(125.0);
   corrEnergybinEdges.push_back(175.0);
   corrEnergybinEdges.push_back(225.0);
-  corrEnergybinEdges.push_back(275.0);
-  corrEnergybinEdges.push_back(350.0);
-  corrEnergybinEdges.push_back(450.0);
-  corrEnergybinEdges.push_back(900.0);
+  if (USE_E) {
+    corrEnergybinEdges.push_back(275.0);
+    corrEnergybinEdges.push_back(450.0);
+    corrEnergybinEdges.push_back(900.0);
+  } else {
+    corrEnergybinEdges.push_back(275.0);
+    //corrEnergybinEdges.push_back(350.0);
+    corrEnergybinEdges.push_back(450.0);
+    corrEnergybinEdges.push_back(900.0);
+  }    
 
   // corrEnergybinEdges.push_back(25.0);
   // corrEnergybinEdges.push_back(50.0);
@@ -1044,6 +1370,7 @@ Int_t main(Int_t argc, char* argv[]) {
   // plotEoverP(sampleName[0],sampleName[1],"hModeEoverP"," mode of E/P");
   // plotEoverPdistribution(sampleName[0], corrEnergybinEdges);
   // plotEoverPdistribution(sampleName[1], corrEnergybinEdges);
+
 
   return 0;
 
