@@ -7,7 +7,6 @@
 using namespace std;
 using namespace edm;
 
-
 HLTRegionalEcalResonanceFilter::HLTRegionalEcalResonanceFilter(const edm::ParameterSet& iConfig)
 {
   barrelHits_ = iConfig.getParameter< edm::InputTag > ("barrelHits");
@@ -1121,12 +1120,11 @@ bool HLTRegionalEcalResonanceFilter::checkStatusOfEcalRecHit(const EcalChannelSt
 
 
 float HLTRegionalEcalResonanceFilter::DeltaPhi(float phi1, float phi2){
+  
+  float diff = phi2 - phi1;
+  while (diff > TMath::Pi()) diff -= 2.*TMath::Pi();
+  while (diff <= -TMath::Pi()) diff += 2.*TMath::Pi();
 
-  float diff = fabs(phi2 - phi1);
-  
-  while (diff >acos(-1)) diff -= 2*acos(-1);
-  while (diff <= -acos(-1)) diff += 2*acos(-1);
-  
   return diff; 
 
 }
