@@ -4,11 +4,12 @@ import FWCore.ParameterSet.Config as cms
 
 
 from Configuration.Eras.Modifier_stage2L1Trigger_cff import stage2L1Trigger
+from Configuration.Eras.Modifier_stage2L1Trigger_2017_cff import stage2L1Trigger_2017
 if not (stage2L1Trigger.isChosen()):
     print "L1T WARN:  L1REPACK:Full (intended for 2016 data) only supports Stage 2 eras for now."
     print "L1T WARN:  Use a legacy version of L1REPACK for now."
 else:
-    print "L1T INFO:  L1REPACK:Full (intended for 2016 data) will unpack all L1T inputs, re-emulated (Stage-2), and pack uGT, uGMT, and Calo Stage-2 output."
+    print "L1T INFO:  L1REPACK:Full (intended for 2016 & 2017 data) will unpack all L1T inputs, re-emulated (Stage-2), and pack uGT, uGMT, and Calo Stage-2 output."
 
     # First, Unpack all inputs to L1:
     import EventFilter.L1TRawToDigi.bmtfDigis_cfi
@@ -47,6 +48,10 @@ else:
     unpackHcal = EventFilter.HcalRawToDigi.HcalRawToDigi_cfi.hcalDigis.clone(
         InputLabel = cms.InputTag( 'rawDataCollector', processName=cms.InputTag.skipCurrentProcess()))
 
+    import EventFilter.L1TXRawToDigi.caloLayer1Stage2Digis_cfi
+    unpackLayer1 = EventFilter.L1TXRawToDigi.caloLayer1Stage2Digis_cfi.l1tCaloLayer1Digis.clone(
+        fedRawDataLabel = cms.InputTag( 'rawDataCollector', processName=cms.InputTag.skipCurrentProcess()))
+
     # Second, Re-Emulate the entire L1T
 
     from SimCalorimetry.HcalTrigPrimProducers.hcaltpdigi_cff import *
@@ -84,14 +89,16 @@ else:
     simOmtfDigis.srcRPC              = cms.InputTag('unpackRPC')
     simOmtfDigis.srcDTPh             = cms.InputTag("unpackBmtf")
     simOmtfDigis.srcDTTh             = cms.InputTag("unpackBmtf")
-    simOmtfDigis.srcCSC              = cms.InputTag("unpackCsctf") ## Replace when emtfStage2Digis give equal data-emulator agreement
+    simOmtfDigis.srcCSC              = cms.InputTag("unpackCsctf") 
+    if (stage2L1Trigger_2017.isChosen()):
+        simOmtfDigis.srcCSC              = cms.InputTag("unpackEmtf") 
 
     # EMTF
     simEmtfDigis.CSCInput            = cms.InputTag("unpackEmtf") 
     simEmtfDigis.RPCInput            = cms.InputTag('unpackRPC')
 
     simCaloStage2Layer1Digis.ecalToken = cms.InputTag('unpackEcal:EcalTriggerPrimitives')
-    simCaloStage2Layer1Digis.hcalToken = cms.InputTag('unpackHcal')
+    simCaloStage2Layer1Digis.hcalToken = cms.InputTag('unpackLayer1')
 
     # Finally, pack the new L1T output back into RAW
     
@@ -114,5 +121,7 @@ else:
 
     
     SimL1Emulator = cms.Sequence(unpackEcal+unpackHcal+unpackCSC+unpackDT+unpackRPC+unpackEmtf+unpackCsctf+unpackBmtf
+                                 +unpackLayer1
                                  +SimL1EmulatorCore+packCaloStage2
                                  +packGmtStage2+packGtStage2+rawDataCollector)
+
