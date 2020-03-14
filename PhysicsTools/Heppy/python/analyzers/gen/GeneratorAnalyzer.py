@@ -139,7 +139,9 @@ class GeneratorAnalyzer( Analyzer ):
                 gp.rawIndex = rawIndex # remember its index, so that we can set the mother index later
                 keymap[rawIndex] = len(good)
                 good.append(gp)
-        # connect mother links
+        # connect mother links        
+        genVertexZ = -999
+        ptLeadingPromptFinalStateLepton = 0
         for igp,gp in enumerate(good):
             gp.motherIndex = -1
             gp.sourceId    = 99
@@ -151,6 +153,13 @@ class GeneratorAnalyzer( Analyzer ):
             gp._fromHardProcessFinalState               = gp.fromHardProcessFinalState()
             gp._fromHardProcessDecayed                  = gp.fromHardProcessDecayed()
             gp.genSummaryIndex = igp
+            # temporary
+            # store vertex position of isPromptFinalState lepton
+            # done here to avoid having to make friends to have it
+            if gp.isPromptFinalState() and any(abs(gp.pdgId()) == x for x in [11,13]):
+                if gp.pt() > ptLeadingPromptFinalStateLepton:
+                    ptLeadingPromptFinalStateLepton = gp.pt()
+                    genVertexZ = gp.vz()            
             (ancestor, ancestorKey) = (None,-1) if gp.numberOfMothers() == 0 else motherRef(gp)
             while ancestor:
                 if ancestorKey in keymap:
@@ -166,6 +175,7 @@ class GeneratorAnalyzer( Analyzer ):
                 if hasattr(ancestor, "sourceId") and ancestor.sourceId != 99 and (ancestor.mass() > gp.mass() or gp.sourceId == 99):
                     gp.sourceId = ancestor.sourceId
         event.generatorSummary = good
+        event.genVertexZ = genVertexZ
         # add the ID of the mother to be able to recreate last decay chains
         for ip,p in enumerate(good):
             moms = realGenMothers(p)
